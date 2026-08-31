@@ -148,11 +148,11 @@ end
 -- ═══════════════════════════════════════════════════════════════
 
 function love.update(dt)
-    -- Update runner
-    runner.update(dt)
-
-    -- Update simulation
+    -- Simulation first so blocking API calls see movement same frame
     world.update(dt)
+
+    -- Update runner (Python IPC)
+    runner.update(dt)
 
     -- Win detection
     if world.isWon() and runner.getStatus() ~= "won" then

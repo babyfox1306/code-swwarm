@@ -74,6 +74,22 @@ local function jsonDecode(s)
     return obj
 end
 
+-- Python worker writes proper JSON arrays for args — parse explicitly
+local function parseApiCall(content)
+    if not content or content == "" then return nil end
+    local fn = content:match('"fn"%s*:%s*"([^"]*)"')
+    if not fn then return nil end
+    local call_id = tonumber(content:match('"call_id"%s*:%s*(%d+)'))
+    local args = {}
+    local argsJson = content:match('"args"%s*:%s*(%[[^%]]*%])')
+    if argsJson then
+        for s in argsJson:gmatch('"([^"]*)"') do
+            args[#args + 1] = s
+        end
+    end
+    return { fn = fn, args = args, call_id = call_id }
+end
+
 -- ═══════════════════════════════════════════════════════════════
 -- File I/O helpers
 -- ═══════════════════════════════════════════════════════════════
@@ -197,9 +213,9 @@ local function spawnWorker()
     local src = love.filesystem.getSourceBaseDirectory and love.filesystem.getSourceBaseDirectory() or ""
     local workerPy = src ~= "" and (src .. "/python/worker.py") or "python/worker.py"
 
-    -- Launch Python worker with IPC dir env var
+    -- Launch Python worker with IPC dir env var (quote paths — project dir may contain spaces)
     local cmd = string.format(
-        'set CODESWARM_IPC_DIR=%s && start "" /B "%s" "%s"',
+        'set "CODESWARM_IPC_DIR=%s" && start "" /B "%s" "%s"',
         dir,
         PythonRunner.pythonExe,
         workerPy
@@ -208,6 +224,14 @@ local function spawnWorker()
 
     PythonRunner.workerPid = true
     return true
+end
+
+local function waitForWorkerReady(maxSec)
+    local deadline = os.clock() + (maxSec or 2)
+    while os.clock() < deadline do
+        if fileExists(ipcPath("worker.pid")) then return true end
+    end
+    return false
 end
 
 local function killWorker()
@@ -329,6 +353,12 @@ function PythonRunner.run(source)
 
     if not PythonRunner.workerPid then
         if not spawnWorker() then return end
+    end
+    if not waitForWorkerReady(2) then
+        PythonRunner.status = "error"
+        PythonRunner.errorMessage = "Python worker failed to start.\nTry restarting the game."
+        killWorker()
+        return
     end
 
     -- Clean old response, send run command
@@ -468,7 +498,7 @@ function PythonRunner.update(dt)
     local callPath = ipcPath("api_call.json")
     local content = readFile(callPath)
     if content and content ~= "" then
-        local resp = jsonDecode(content)
+        local resp = parseApiCall(content)
         removeFile(callPath)
         if resp and resp.fn then
             PythonRunner.wallTimer = 0  -- reset on progress
