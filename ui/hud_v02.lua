@@ -32,50 +32,37 @@ local HudV02 = {
     capacity = 5,
 }
 
-function HudV02.init(editorRef, coachRef, errorRef, apiRefRef)
-    HudV02.font = love.graphics.newFont(14)
-    HudV02.smallFont = love.graphics.newFont(11)
-    HudV02.editor = editorRef
-    HudV02.coachPanel = coachRef
-    HudV02.errorPanel = errorRef
-    HudV02.apiRef = apiRefRef
-
+function HudV02.relayout()
     local sw = love.graphics.getWidth()
     local sh = love.graphics.getHeight()
 
     -- Layout zones
-    local rightW = 280
+    local rightW = math.max(240, math.floor(sw * 0.22))
     local leftW = sw - rightW
     local topH = HudV02.topBarH
     local controlH = HudV02.controlBarH
     local availH = sh - topH - controlH
 
-    -- World: left top half
     HudV02.worldX = 0
     HudV02.worldY = topH
     HudV02.worldW = leftW
     HudV02.worldH = math.floor(availH * 0.45)
 
-    -- Editor: left bottom half
     HudV02.editorX = 0
     HudV02.editorY = HudV02.worldY + HudV02.worldH
     HudV02.editorW = leftW
     HudV02.editorH = availH - HudV02.worldH
 
-    -- Coach: right top
     HudV02.coachX = leftW
     HudV02.coachY = topH
     HudV02.coachW = rightW
     HudV02.coachH = math.floor(availH * 0.55)
 
-    -- Error: right bottom
     local errorY = HudV02.coachY + HudV02.coachH
     local errorH = availH - HudV02.coachH
 
-    -- Controls bar
     HudV02.controlY = sh - controlH
 
-    -- Init sub-panels
     if HudV02.editor then
         HudV02.editor.init(HudV02.editorX, HudV02.editorY, HudV02.editorW, HudV02.editorH)
     end
@@ -86,10 +73,11 @@ function HudV02.init(editorRef, coachRef, errorRef, apiRefRef)
         HudV02.errorPanel.init(HudV02.coachX, errorY, HudV02.coachW, errorH)
     end
     if HudV02.apiRef then
-        HudV02.apiRef.init(200, 80, 500, 400)
+        local refW = math.min(520, sw - 40)
+        local refH = math.min(440, sh - 80)
+        HudV02.apiRef.init(math.floor((sw - refW) / 2), math.floor((sh - refH) / 2), refW, refH)
     end
 
-    -- Buttons
     local btnY = HudV02.controlY + 5
     local btnH = 30
     local btnW = 100
@@ -100,6 +88,16 @@ function HudV02.init(editorRef, coachRef, errorRef, apiRefRef)
         { id = "reset", x = btnX + (btnW + 10) * 2, y = btnY, w = btnW + 20, h = btnH, label = "RESET (F8)", color = {0.3, 0.3, 0.15} },
         { id = "api_ref", x = btnX + (btnW + 10) * 3 + 20, y = btnY, w = 70, h = btnH, label = "API (F1)", color = {0.2, 0.25, 0.4} },
     }
+end
+
+function HudV02.init(editorRef, coachRef, errorRef, apiRefRef)
+    HudV02.font = HudV02.font or love.graphics.newFont(14)
+    HudV02.smallFont = HudV02.smallFont or love.graphics.newFont(11)
+    HudV02.editor = editorRef
+    HudV02.coachPanel = coachRef
+    HudV02.errorPanel = errorRef
+    HudV02.apiRef = apiRefRef
+    HudV02.relayout()
 end
 
 function HudV02:setStatus(s)
@@ -132,30 +130,26 @@ end
 
 -- Draw top bar
 function HudV02:_drawTopBar()
+    local sw = love.graphics.getWidth()
     love.graphics.setColor(0.06, 0.07, 0.1)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), HudV02.topBarH)
+    love.graphics.rectangle("fill", 0, 0, sw, HudV02.topBarH)
 
     love.graphics.setFont(HudV02.font)
 
-    -- Title
     love.graphics.setColor(0.4, 0.7, 1.0)
     love.graphics.print("CODE SWARM", 10, 8)
 
-    -- Mission
     love.graphics.setColor(0.7, 0.72, 0.75)
     love.graphics.print("Mission 01: First Program", 140, 8)
 
-    -- Deposited
     love.graphics.setColor(0.9, 0.85, 0.3)
     local depText = string.format("DEPOSITED: %d / %d", HudV02.deposited, C.WIN_ORE_TARGET)
     love.graphics.print(depText, 420, 8)
 
-    -- Cargo
     love.graphics.setColor(0.5, 0.8, 0.5)
     local cargoText = string.format("CARGO: %d / %d", HudV02.cargo, HudV02.capacity)
     love.graphics.print(cargoText, 620, 8)
 
-    -- Status
     local statusColors = {
         idle = {0.5, 0.5, 0.5},
         running = {0.9, 0.8, 0.2},
@@ -165,8 +159,7 @@ function HudV02:_drawTopBar()
     }
     local sc = statusColors[HudV02.status] or {0.5, 0.5, 0.5}
     love.graphics.setColor(sc[1], sc[2], sc[3])
-    local statusText = string.upper(HudV02.status)
-    love.graphics.print(statusText, 780, 8)
+    love.graphics.printf(string.upper(HudV02.status), sw - 130, 8, 120, "right")
 end
 
 -- Draw controls bar
@@ -290,6 +283,12 @@ function HudV02:keypressed(key)
     -- Global keys
     if key == "f1" then
         if self.apiRef then self.apiRef.toggle() end
+        return nil
+    end
+    if key == "f11" then
+        local fs = not love.window.getFullscreen()
+        love.window.setFullscreen(fs)
+        HudV02.relayout()
         return nil
     end
     if key == "f5" then return "run" end
