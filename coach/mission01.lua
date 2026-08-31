@@ -25,6 +25,10 @@ function Mission01:onEvent(name, data)
     table.insert(Mission01.events, { name = name, data = data, step = Mission01.step })
 
     -- Auto-advance logic (soft guidance)
+    if name == "arrived_at_ore" and Mission01.step == 1 then
+        Mission01.step = 2
+    end
+
     if name == "cargo_changed" and data then
         if data.cargo >= 1 and Mission01.step == 2 then
             Mission01.step = 3

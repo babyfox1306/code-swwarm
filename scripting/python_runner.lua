@@ -4,6 +4,8 @@
 
 local C = require("game.constants")
 
+local PYTHON_WAIT = "__PYTHON_WAIT__"
+
 local PythonRunner = {
     status = "idle",        -- idle | running | error | won | stopped
     errorMessage = nil,
@@ -16,6 +18,8 @@ local PythonRunner = {
     ipcDir = nil,
     wallTimer = 0,
     WALL_TIMEOUT = 30,
+    pendingApiCall = nil,
+    _waitPredicate = nil,
 }
 
 -- ═══════════════════════════════════════════════════════════════
@@ -204,12 +208,21 @@ local function killWorker()
     local start = os.clock()
     while os.clock() - start < 0.3 do end  -- brief wait
 
-    -- Force kill
-    os.execute('taskkill /F /IM python.exe /T >nul 2>&1')
+    -- Force kill our worker only (by PID file)
+    local pidContent = readFile(ipcPath("worker.pid"))
+    if pidContent then
+        local pid = pidContent:match("(%d+)")
+        if pid then
+            os.execute('taskkill /F /PID ' .. pid .. ' >nul 2>&1')
+        end
+    end
 
     PythonRunner.workerPid = nil
     removeFile(ipcPath("command.json"))
     removeFile(ipcPath("response.json"))
+    removeFile(ipcPath("worker.pid"))
+    removeFile(ipcPath("api_call.json"))
+    removeFile(ipcPath("api_response.json"))
 end
 
 local function writeJson(path, tbl)
@@ -290,6 +303,17 @@ function PythonRunner.init(worldRef, apiRef)
     PythonRunner.errorMessage = nil
     PythonRunner.errorLine = nil
     PythonRunner.errorKind = nil
+    PythonRunner.pendingApiCall = nil
+    PythonRunner._waitPredicate = nil
+end
+
+-- Called by Api.move_to/mine/deposit when Python path is active
+function PythonRunner.waitUntil(predicate)
+    if PythonRunner.status ~= "running" then
+        error("Execution stopped", 0)
+    end
+    PythonRunner._waitPredicate = predicate
+    error(PYTHON_WAIT, 0)
 end
 
 function PythonRunner.run(source)
@@ -322,6 +346,8 @@ function PythonRunner.stop()
     if PythonRunner.status == "running" or PythonRunner.status == "error" then
         PythonRunner.status = "stopped"
     end
+    PythonRunner.pendingApiCall = nil
+    PythonRunner._waitPredicate = nil
     killWorker()
     if PythonRunner.world then
         local drone = PythonRunner.world.getDrone()
@@ -355,8 +381,9 @@ function PythonRunner.isRunning()  return PythonRunner.status == "running" end
 
 function PythonRunner._executeApiCall(fn, args)
     local api = PythonRunner.api
-    if not api then return "API not initialized" end
+    if not api then return nil, "API not initialized" end
 
+    PythonRunner._waitPredicate = nil
     local ok, result = pcall(function()
         if fn == "move_to" then
             api.move_to(args[1])
@@ -375,12 +402,29 @@ function PythonRunner._executeApiCall(fn, args)
             api.deposit()
             return true
         else
-            return "Unknown API: " .. tostring(fn)
+            error("Unknown API: " .. tostring(fn), 0)
         end
     end)
 
-    if ok then return result end
-    return tostring(result)
+    if not ok and result == PYTHON_WAIT then
+        return nil, "pending"
+    end
+    if not ok then
+        return nil, tostring(result)
+    end
+    return result, nil
+end
+
+local function finishPendingApiCall(callId, result, errMsg)
+    local respData
+    if errMsg then
+        respData = { error = errMsg, call_id = callId }
+    else
+        respData = { result = result, call_id = callId }
+    end
+    writeJson(ipcPath("api_response.json"), respData)
+    PythonRunner.pendingApiCall = nil
+    PythonRunner._waitPredicate = nil
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -402,27 +446,47 @@ function PythonRunner.update(dt)
         return
     end
 
+    -- Resume pending blocking API call (move/mine/deposit)
+    if PythonRunner.pendingApiCall then
+        local pending = PythonRunner.pendingApiCall
+        if PythonRunner.status ~= "running" then
+            finishPendingApiCall(pending.call_id, nil, "Execution stopped")
+            return
+        end
+        local pred = PythonRunner._waitPredicate
+        if pred and pred() then
+            finishPendingApiCall(pending.call_id, pending.result or true, nil)
+            PythonRunner.wallTimer = 0
+            if PythonRunner.world and PythonRunner.world.isWon() then
+                PythonRunner:onWin()
+            end
+        end
+        return
+    end
+
     -- Poll for API call from Python (api_call.json)
     local callPath = ipcPath("api_call.json")
     local content = readFile(callPath)
     if content and content ~= "" then
         local resp = jsonDecode(content)
+        removeFile(callPath)
         if resp and resp.fn then
             PythonRunner.wallTimer = 0  -- reset on progress
-            local result = PythonRunner._executeApiCall(resp.fn, resp.args)
-            local respData
-            if type(result) == "string" and result:find("Error") then
-                respData = { error = result, call_id = resp.call_id }
+            local result, err = PythonRunner._executeApiCall(resp.fn, resp.args)
+            if err == "pending" then
+                PythonRunner.pendingApiCall = {
+                    call_id = resp.call_id,
+                    result = true,
+                }
+            elseif err then
+                finishPendingApiCall(resp.call_id, nil, err)
             else
-                respData = { result = result, call_id = resp.call_id }
+                finishPendingApiCall(resp.call_id, result, nil)
+                if PythonRunner.world and PythonRunner.world.isWon() then
+                    PythonRunner:onWin()
+                end
             end
-            writeJson(ipcPath("api_response.json"), respData)
-
-            -- Check win after each API call
-            if PythonRunner.world and PythonRunner.world.isWon() and PythonRunner.status == "running" then
-                PythonRunner:onWin()
-            end
-            return  -- process one call per frame
+            return
         end
     end
 
@@ -432,6 +496,7 @@ function PythonRunner.update(dt)
     if not respContent or respContent == "" then return end
 
     local resp2 = jsonDecode(respContent)
+    removeFile(respPath)
     if not resp2 then return end
 
     if resp2.type == "error" then

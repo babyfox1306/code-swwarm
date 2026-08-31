@@ -24,6 +24,10 @@ local usePython = true  -- toggle: true=V0.2 Python, false=V0.1 Lua
 local runner = nil      -- active runner
 local lastRunnerStatus = "idle"
 local saveFile = "mission01_code.py"
+local lastCargo = 0
+local lastDeposited = 0
+local lastDroneState = "idle"
+local arrivedAtOreEmitted = false
 
 -- ═══════════════════════════════════════════════════════════════
 -- Save / Load editor code
@@ -74,6 +78,11 @@ local function doAction(action)
         runner.reset()
         ErrorPanel:clear()
         Mission01.init()
+        CoachPanel:setStep(1)
+        lastCargo = 0
+        lastDeposited = 0
+        lastDroneState = "idle"
+        arrivedAtOreEmitted = false
         HudV02:setStatus("idle")
         HudV02:setDeposited(0)
         HudV02:setCargo(0, C.CARGO_CAPACITY)
@@ -107,6 +116,7 @@ function love.load()
 
     -- Choose active runner
     runner = usePython and pythonRunner or luaRunner
+    Api.setRunner(runner)
 
     -- Init UI
     Editor.init(0, 0, 600, 300)
@@ -126,6 +136,9 @@ function love.load()
 
     -- Init coach
     Mission01.init()
+    CoachPanel:setStep(Mission01.getStep())
+    lastCargo = world.getDrone():getCargo()
+    lastDeposited = world.getDepositedOre()
 
     -- Start ambience
     Audio.startAmbience()
@@ -181,11 +194,36 @@ function love.update(dt)
     Audio.update(dt, drone.state)
     HudV02:update(dt)
 
-    -- Coach events (check simulation state changes)
-    if status == "running" then
-        if drone.state == "idle" and drone.cargo > 0 then
-            -- Could emit cargo_changed event
-        end
+    -- Coach events — sync step with simulation
+    local deposited = world.getDepositedOre()
+    local base = world.getBase()
+
+    if drone.state == "idle" and drone.lastMoveTarget
+        and drone.lastMoveTarget.type == "ore"
+        and not arrivedAtOreEmitted then
+        Mission01:onEvent("arrived_at_ore", { oreId = drone.lastMoveTarget.id })
+        CoachPanel:setStep(Mission01.getStep())
+        arrivedAtOreEmitted = true
+    end
+
+    if drone.cargo ~= lastCargo then
+        Mission01:onEvent("cargo_changed", { cargo = drone.cargo })
+        CoachPanel:setStep(Mission01.getStep())
+        lastCargo = drone.cargo
+    end
+
+    if deposited ~= lastDeposited then
+        Mission01:onEvent("deposited", { amount = deposited - lastDeposited, total = deposited })
+        CoachPanel:setStep(Mission01.getStep())
+        lastDeposited = deposited
+    end
+
+    if base:isDroneInRange(drone) and drone.cargo > 0 and lastDroneState ~= "at_base" then
+        Mission01:onEvent("at_base", { cargo = drone.cargo })
+        CoachPanel:setStep(Mission01.getStep())
+        lastDroneState = "at_base"
+    elseif not base:isDroneInRange(drone) then
+        lastDroneState = "away"
     end
 end
 

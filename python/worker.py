@@ -62,9 +62,11 @@ def _run_source(source, ipc_dir):
     # Arm trace hook for anti-freeze — ONLY around exec
     reset_trace()
     sys.settrace(trace_hook)
+    had_error = False
     try:
         exec(code, globals_dict)
     except SyntaxError as e:
+        had_error = True
         _write_resp(ipc_dir, {
             "type": "error",
             "kind": "SyntaxError",
@@ -72,6 +74,7 @@ def _run_source(source, ipc_dir):
             "line": e.lineno,
         })
     except IndentationError as e:
+        had_error = True
         _write_resp(ipc_dir, {
             "type": "error",
             "kind": "IndentationError",
@@ -79,6 +82,7 @@ def _run_source(source, ipc_dir):
             "line": e.lineno,
         })
     except NameError as e:
+        had_error = True
         _write_resp(ipc_dir, {
             "type": "error",
             "kind": "NameError",
@@ -86,6 +90,7 @@ def _run_source(source, ipc_dir):
             "line": _extract_line(e),
         })
     except TypeError as e:
+        had_error = True
         _write_resp(ipc_dir, {
             "type": "error",
             "kind": "TypeError",
@@ -93,6 +98,7 @@ def _run_source(source, ipc_dir):
             "line": _extract_line(e),
         })
     except RuntimeError as e:
+        had_error = True
         _write_resp(ipc_dir, {
             "type": "error",
             "kind": "RuntimeError",
@@ -100,6 +106,7 @@ def _run_source(source, ipc_dir):
             "line": _extract_line(e),
         })
     except Exception as e:
+        had_error = True
         _write_resp(ipc_dir, {
             "type": "error",
             "kind": type(e).__name__,
@@ -109,8 +116,8 @@ def _run_source(source, ipc_dir):
     finally:
         sys.settrace(None)
 
-    # Signal script completion (no error)
-    _write_resp(ipc_dir, {"type": "done"})
+    if not had_error:
+        _write_resp(ipc_dir, {"type": "done"})
 
 
 def _extract_line(exc):
@@ -121,8 +128,15 @@ def _extract_line(exc):
     return None
 
 
+def _write_pid(ipc_dir):
+    pid_path = os.path.join(ipc_dir, "worker.pid")
+    with open(pid_path, "w") as f:
+        f.write(str(os.getpid()))
+
+
 def main():
     ipc_dir = _get_ipc_dir()
+    _write_pid(ipc_dir)
     stop = False
 
     while not stop:

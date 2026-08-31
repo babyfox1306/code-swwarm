@@ -45,6 +45,14 @@ function Api.nearest_ore()
     return Targets.new(ore)
 end
 
+-- Parse ore target string from nearest_ore() (Python IPC returns "ore#id")
+local function parseOreTargetString(target)
+    if type(target) ~= "string" then return nil end
+    local id = target:match("^ore#(%d+)$") or target:match("^ore:(%d+)$")
+    if id then return tonumber(id) end
+    return nil
+end
+
 -- API: move_to(target) — blocking via coroutine yield
 function Api.move_to(target)
     local drone = Api.world.getDrone()
@@ -66,7 +74,22 @@ function Api.move_to(target)
         drone.state = "moving"
         drone.lastMoveTarget = { type = "ore", id = target.id }
     else
-        error("Invalid move target: " .. tostring(target))
+        local oreId = parseOreTargetString(target)
+        if oreId then
+            local ore = Api.world.getOreById(oreId)
+            if not ore then
+                error("Invalid ore target")
+            end
+            if not ore:hasOre() then
+                error("Ore node depleted")
+            end
+            drone.targetX = ore.x
+            drone.targetY = ore.y
+            drone.state = "moving"
+            drone.lastMoveTarget = { type = "ore", id = oreId }
+        else
+            error("Invalid move target: " .. tostring(target))
+        end
     end
 
     -- yield until drone returns to idle
