@@ -11,10 +11,12 @@ local Runner = {
     instructionsThisFrame = 0,
 }
 
--- instruction budget hook
+-- Instruction budget hook
+-- Hook fires every HOOK_INTERVAL instructions.
+-- Budget is in real instructions, so we multiply count by interval.
 local function hook(event)
-    if event == "count" or event == "line" then
-        Runner.instructionsThisFrame = Runner.instructionsThisFrame + 1
+    if event == "count" then
+        Runner.instructionsThisFrame = Runner.instructionsThisFrame + C.HOOK_INSTRUCTION_INTERVAL
         if Runner.instructionsThisFrame > C.INSTRUCTION_BUDGET then
             error("Execution stopped: instruction budget exceeded", 0)
         end
@@ -102,13 +104,14 @@ function Runner.run()
 
     Runner.fn = fn
     Runner.co = coroutine.create(function()
-        debug.sethook(hook, "", C.HOOK_INSTRUCTION_INTERVAL)
+        debug.sethook(hook, "c", C.HOOK_INSTRUCTION_INTERVAL)
         fn()
     end)
     Runner.status = "running"
     Runner.errorMessage = nil
 end
 
+-- STOP: works from running, error, or any active state
 function Runner.stop()
     if Runner.co then
         debug.sethook(Runner.co, nil)
@@ -116,7 +119,7 @@ function Runner.stop()
     end
     Runner.fn = nil
 
-    if Runner.status == "running" then
+    if Runner.status == "running" or Runner.status == "error" then
         Runner.status = "stopped"
     end
 

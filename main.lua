@@ -14,10 +14,8 @@ local function doAction(action)
         Audio.play("ui_click")
         Audio.play("run_start")
         runner:run()
-        if runner:getStatus() == "error" then
-            Audio.play("error")
-            hud:setError(runner:getError())
-        else
+        -- error SFX is handled in love.update on status transition
+        if runner:getStatus() ~= "error" then
             hud:clearError()
         end
     elseif action == "stop" then

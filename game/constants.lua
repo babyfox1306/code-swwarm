@@ -40,7 +40,7 @@ C.WORLD_H = 400
 
 -- Script runner
 C.INSTRUCTION_BUDGET = 50000
-C.HOOK_INSTRUCTION_INTERVAL = 1000
+C.HOOK_INSTRUCTION_INTERVAL = 100  -- hook fires every 100 instr, budget = 50000 real instr
 
 -- Visual
 C.SPRITE_SCALE = 2
