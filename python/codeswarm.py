@@ -20,11 +20,17 @@ import json
 import time
 
 _call_counter = 0
-_ipc_dir = os.environ.get("CODESWARM_IPC_DIR", "")
 
 # Separate file names for API calls (worker uses command.json/response.json)
 API_CALL_FILE = "api_call.json"
 API_RESPONSE_FILE = "api_response.json"
+
+
+def _ipc_dir():
+    d = os.environ.get("CODESWARM_IPC_DIR", "")
+    if not d:
+        d = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", "/tmp")), "codeswarm_ipc")
+    return d
 
 
 def _rpc(fn_name, args=None):
@@ -33,8 +39,9 @@ def _rpc(fn_name, args=None):
     _call_counter += 1
     call_id = _call_counter
 
-    call_path = os.path.join(_ipc_dir, API_CALL_FILE)
-    resp_path = os.path.join(_ipc_dir, API_RESPONSE_FILE)
+    ipc_dir = _ipc_dir()
+    call_path = os.path.join(ipc_dir, API_CALL_FILE)
+    resp_path = os.path.join(ipc_dir, API_RESPONSE_FILE)
 
     # Write API call
     cmd = {"fn": fn_name, "args": args or [], "call_id": call_id}

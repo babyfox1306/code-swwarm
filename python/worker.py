@@ -17,11 +17,18 @@ from bootstrap import make_globals, trace_hook, reset_trace, MAX_INSTRUCTIONS
 
 
 def _get_ipc_dir():
-    """Get IPC directory — from env or hardcoded temp path."""
-    ipc_dir = os.environ.get("CODESWARM_IPC_DIR", "")
-    if not ipc_dir:
-        ipc_dir = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", "/tmp")), "codeswarm_ipc")
+    """Get IPC directory — argv[1], env, or temp fallback."""
+    if len(sys.argv) > 1 and sys.argv[1].strip():
+        ipc_dir = sys.argv[1].strip()
+    else:
+        ipc_dir = os.environ.get("CODESWARM_IPC_DIR", "")
+        if not ipc_dir:
+            ipc_dir = os.path.join(
+                os.environ.get("TEMP", os.environ.get("TMP", "/tmp")),
+                "codeswarm_ipc",
+            )
     os.makedirs(ipc_dir, exist_ok=True)
+    os.environ["CODESWARM_IPC_DIR"] = ipc_dir
     return ipc_dir
 
 
@@ -135,37 +142,49 @@ def _write_pid(ipc_dir):
 
 
 def main():
-    ipc_dir = _get_ipc_dir()
-    _write_pid(ipc_dir)
-    stop = False
+    ipc_dir = None
+    try:
+        ipc_dir = _get_ipc_dir()
+        _write_pid(ipc_dir)
+        stop = False
 
-    while not stop:
-        cmd = _read_cmd(ipc_dir)
-        if cmd is None:
-            time.sleep(0.02)
-            continue
+        while not stop:
+            cmd = _read_cmd(ipc_dir)
+            if cmd is None:
+                time.sleep(0.02)
+                continue
 
-        cmd_type = cmd.get("fn", "")
-        args = cmd.get("args", [])
+            cmd_type = cmd.get("fn", "")
+            args = cmd.get("args", [])
 
-        if cmd_type == "run":
-            source = args[0] if args else ""
-            _run_source(source, ipc_dir)
+            if cmd_type == "run":
+                source = args[0] if args else ""
+                _run_source(source, ipc_dir)
 
-        elif cmd_type == "stop":
-            stop = True
+            elif cmd_type == "stop":
+                stop = True
 
-        elif cmd_type == "kill":
-            stop = True
+            elif cmd_type == "kill":
+                stop = True
 
-        else:
-            _write_resp(ipc_dir, {
-                "type": "error",
-                "kind": "InternalError",
-                "message": "Unknown command: " + str(cmd_type),
-            })
+            else:
+                _write_resp(ipc_dir, {
+                    "type": "error",
+                    "kind": "InternalError",
+                    "message": "Unknown command: " + str(cmd_type),
+                })
 
-    sys.exit(0)
+        sys.exit(0)
+    except Exception as e:
+        if ipc_dir is None:
+            ipc_dir = _get_ipc_dir()
+        err_path = os.path.join(ipc_dir, "worker_error.txt")
+        try:
+            with open(err_path, "w") as f:
+                f.write(str(e))
+        except OSError:
+            pass
+        raise
 
 
 if __name__ == "__main__":

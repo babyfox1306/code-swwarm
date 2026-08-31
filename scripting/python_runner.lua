@@ -146,13 +146,22 @@ local function ipcPath(name)
     return getIpcDir() .. "/" .. name
 end
 
+local function winPath(p)
+    return (p or ""):gsub("/", "\\")
+end
+
+local function isBadPythonPath(path)
+    if not path or path == "" then return true end
+    return path:lower():find("windowsapps", 1, true) ~= nil
+end
+
 -- ═══════════════════════════════════════════════════════════════
 -- Python executable finder
 -- ═══════════════════════════════════════════════════════════════
 
 local function findPython()
     local envPy = os.getenv("CODESWARM_PYTHON")
-    if envPy and fileExists(envPy) then return envPy end
+    if envPy and fileExists(envPy) and not isBadPythonPath(envPy) then return envPy end
 
     -- Bundled
     local src = love.filesystem.getSourceBaseDirectory and love.filesystem.getSourceBaseDirectory() or ""
@@ -161,27 +170,29 @@ local function findPython()
         if fileExists(bundled) then return bundled end
     end
 
-    -- System PATH
-    local handle = io.popen('where python 2>nul')
-    if handle then
-        local result = handle:read("*l")
-        handle:close()
-        if result and result ~= "" then
-            -- where returns full path, take first line
-            local path = result:match("^[^\r\n]+")
-            if path and fileExists(path) then return path end
-        end
-    end
-
-    -- Common locations
+    -- Real installs (prefer over Windows Store stub from `where python`)
     local locations = {
-        os.getenv("LOCALAPPDATA") .. "/Programs/Python/Python310/python.exe",
         os.getenv("LOCALAPPDATA") .. "/Programs/Python/Python311/python.exe",
-        "C:/Python310/python.exe",
+        os.getenv("LOCALAPPDATA") .. "/Programs/Python/Python310/python.exe",
+        os.getenv("LOCALAPPDATA") .. "/Programs/Python/Python312/python.exe",
         "C:/Python311/python.exe",
+        "C:/Python310/python.exe",
     }
     for _, loc in ipairs(locations) do
-        if loc and fileExists(loc) then return loc end
+        if loc and fileExists(loc) and not isBadPythonPath(loc) then return loc end
+    end
+
+    -- System PATH (skip WindowsApps alias)
+    local handle = io.popen('where python 2>nul')
+    if handle then
+        for line in handle:lines() do
+            local path = line:match("^%s*(.-)%s*$")
+            if path and path ~= "" and fileExists(path) and not isBadPythonPath(path) then
+                handle:close()
+                return path
+            end
+        end
+        handle:close()
     end
 
     return nil
@@ -209,27 +220,38 @@ local function spawnWorker()
     removeFile(ipcPath("api_call.json"))
     removeFile(ipcPath("api_response.json"))
 
-    -- Resolve worker.py path
+    -- Resolve worker.py + launcher.bat
     local src = love.filesystem.getSourceBaseDirectory and love.filesystem.getSourceBaseDirectory() or ""
     local workerPy = src ~= "" and (src .. "/python/worker.py") or "python/worker.py"
+    local launcher = src ~= "" and (src .. "/scripts/launch-worker.bat") or "scripts/launch-worker.bat"
+    local ipcDir = winPath(getIpcDir())
+    local py = winPath(PythonRunner.pythonExe)
+    local worker = winPath(workerPy)
 
-    -- Launch Python worker with IPC dir env var (quote paths — project dir may contain spaces)
-    local cmd = string.format(
-        'set "CODESWARM_IPC_DIR=%s" && start "" /B "%s" "%s"',
-        dir,
-        PythonRunner.pythonExe,
-        workerPy
-    )
-    os.execute(cmd)
+    -- IPC dir passed as argv[1] to worker (reliable on Windows)
+    if fileExists(launcher) then
+        local cmd = string.format(
+            'cmd /C "%s" "%s" "%s" "%s"',
+            winPath(launcher), py, worker, ipcDir
+        )
+        os.execute(cmd)
+    else
+        local cmd = string.format(
+            'cmd /C start /B "" "%s" "%s" "%s"',
+            py, worker, ipcDir
+        )
+        os.execute(cmd)
+    end
 
     PythonRunner.workerPid = true
     return true
 end
 
 local function waitForWorkerReady(maxSec)
-    local deadline = os.clock() + (maxSec or 2)
+    local deadline = os.clock() + (maxSec or 5)
     while os.clock() < deadline do
         if fileExists(ipcPath("worker.pid")) then return true end
+        if fileExists(ipcPath("worker_error.txt")) then return false end
     end
     return false
 end
@@ -354,9 +376,15 @@ function PythonRunner.run(source)
     if not PythonRunner.workerPid then
         if not spawnWorker() then return end
     end
-    if not waitForWorkerReady(2) then
+    if not waitForWorkerReady(5) then
+        local errDetail = readFile(ipcPath("worker_error.txt"))
         PythonRunner.status = "error"
-        PythonRunner.errorMessage = "Python worker failed to start.\nTry restarting the game."
+        PythonRunner.errorMessage = "Python worker failed to start.\n"
+            .. "Python: " .. tostring(PythonRunner.pythonExe) .. "\n"
+            .. "Try: run.bat (needs Python 3.10+ installed)."
+        if errDetail and errDetail ~= "" then
+            PythonRunner.errorMessage = PythonRunner.errorMessage .. "\n\n" .. errDetail
+        end
         killWorker()
         return
     end
