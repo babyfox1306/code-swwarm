@@ -1,13 +1,36 @@
 -- CODE SWARM — LÖVE2D Entry Point
--- M2: Static world + HUD shell
 
 local world = require("game.world")
-local Demo = require("game.demo")
 local Api = require("scripting.api")
 local runner = require("scripting.runner")
 local Assets = require("game.assets")
-
+local Audio = require("game.audio")
 local hud = require("ui.hud")
+
+-- Shared action handler (keyboard + mouse)
+local function doAction(action)
+    if action == "run" then
+        Audio.play("ui_click")
+        Audio.play("run_start")
+        runner:run()
+        if runner:getStatus() == "error" then
+            Audio.play("error")
+            hud:setError(runner:getError())
+        else
+            hud:clearError()
+        end
+    elseif action == "stop" then
+        Audio.play("ui_click")
+        Audio.play("run_stop")
+        runner:stop()
+        hud:clearError()
+    elseif action == "reset" then
+        Audio.play("ui_click")
+        Audio.stopDroneHum()
+        runner:reset()
+        hud:clearError()
+    end
+end
 
 function love.load()
     local root = love.filesystem.getSource()
@@ -20,21 +43,23 @@ function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
 
     Assets.load()
+    Audio.load()
     world.setAssets(Assets)
+    world.setAudio(Audio)
     world.init()
     Api.setWorld(world)
     runner.init(world, Api)
     Api.setRunner(runner)
     hud.init(runner, world)
+
+    -- start ambience
+    Audio.startAmbience()
 end
 
 function love.update(dt)
     runner:update(dt)
-    if not runner:isRunning() then
-        Demo.update(dt, world)
-    end
     world.update(dt)
-    -- check win
+    -- win detection: stop script immediately when deposit hits 20
     if world.isWon() and runner:getStatus() ~= "won" then
         runner:onWin()
     end
@@ -42,6 +67,7 @@ function love.update(dt)
     if runner:getStatus() == "error" then
         hud:setError(runner:getError())
     end
+    Audio.update(dt, world.getDrone().state)
     hud:update(dt)
 end
 
@@ -51,31 +77,21 @@ function love.draw()
 end
 
 function love.mousepressed(x, y, button)
-    hud:mousepressed(x, y, button)
+    local action = hud:mousepressed(x, y, button)
+    if action then
+        doAction(action)
+    end
 end
 
 function love.keypressed(key)
     local action = hud:keypressed(key)
-    if action == "RUN" then
-        Demo.stop()
-        runner:run()
-        if runner:getStatus() == "error" then
-            hud:setError(runner:getError())
-        else
-            hud:clearError()
-        end
-    elseif action == "STOP" then
-        runner:stop()
-        hud:clearError()
-    elseif action == "RESET" then
-        Demo.stop()
-        runner:reset()
-        hud:clearError()
-    elseif key == "t" then
-        runner:stop()
-        Demo.start(world)
-        runner.status = "running"
+    if action then
+        doAction(action)
+    elseif key == "f5" then
+        doAction("run")
     elseif key == "escape" then
-        love.event.quit()
+        if runner:getStatus() == "idle" or runner:getStatus() == "stopped" then
+            love.event.quit()
+        end
     end
 end

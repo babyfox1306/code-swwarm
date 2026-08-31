@@ -3,6 +3,7 @@ local Drone = require("game.drone")
 local Ore = require("game.ore")
 local Base = require("game.base")
 local Effects = require("game.effects")
+local Audio = nil
 local Assets = nil
 
 local World = {
@@ -18,6 +19,10 @@ function World.setAssets(assetsRef)
     Drone.setAssets(assetsRef)
     Ore.setAssets(assetsRef)
     Base.setAssets(assetsRef)
+end
+
+function World.setAudio(audioRef)
+    Audio = audioRef
 end
 
 function World.init()
@@ -70,6 +75,7 @@ function World.update(dt)
             end
             World.drone.state = "idle"
             World.drone.miningOreId = nil
+            if Audio then Audio.play("mine") end
         end
     end
 
@@ -82,8 +88,10 @@ function World.update(dt)
             World.depositedOre = World.depositedOre + amount
             Effects.spawnDepositEffect(World.base.x, World.base.y)
             World.drone.state = "idle"
+            if Audio then Audio.play("deposit") end
             if World.depositedOre >= C.WIN_ORE_TARGET then
                 World.won = true
+                if Audio then Audio.play("win") end
             end
         end
     end
@@ -116,6 +124,28 @@ function World.draw()
         end
         for gy = C.WORLD_Y, C.WORLD_Y + C.WORLD_H, 40 do
             love.graphics.line(C.WORLD_X, gy, C.WORLD_X + C.WORLD_W, gy)
+        end
+    end
+
+    -- wall border at top and bottom of world
+    if Assets and Assets.tiles.walls then
+        local wall = Assets.tiles.walls
+        local ww, wh = wall:getDimensions()
+        local scale = C.SPRITE_SCALE
+        love.graphics.setColor(1, 1, 1)
+        -- top wall
+        for wx = 0, math.ceil(C.WORLD_W / (ww * scale)) do
+            love.graphics.draw(wall,
+                C.WORLD_X + wx * ww * scale,
+                C.WORLD_Y - wh * scale,
+                0, scale, scale)
+        end
+        -- bottom wall
+        for wx = 0, math.ceil(C.WORLD_W / (ww * scale)) do
+            love.graphics.draw(wall,
+                C.WORLD_X + wx * ww * scale,
+                C.WORLD_Y + C.WORLD_H,
+                0, scale, scale)
         end
     end
 

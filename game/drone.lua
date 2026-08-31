@@ -110,7 +110,7 @@ function Drone:updateMoving(dt)
     self.facingAngle = math.atan2(dy, dx)
 end
 
-function Drone:setAssets(assetsRef)
+function Drone.setAssets(assetsRef)
     Assets = assetsRef
 end
 

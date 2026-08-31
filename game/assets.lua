@@ -17,6 +17,7 @@ function Assets.load()
 
     -- Tiles
     Assets.tiles.floor = love.graphics.newImage("assets/tiles/floor.png")
+    Assets.tiles.walls = love.graphics.newImage("assets/tiles/walls.png")
 
     -- Drone quads: 4 frames, 16×16 each
     local dw, dh = 16, 16

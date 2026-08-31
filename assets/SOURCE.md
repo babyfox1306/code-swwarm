@@ -11,5 +11,23 @@
   - `assets/tiles/floor.png` — floor tile
   - `assets/tiles/walls.png` — wall tiles (decorative)
 
-## Audio
-- (To be added in M9)
+## Audio — Kenney UI Audio Pack
+- **Author:** Kenney
+- **Source:** https://github.com/Calinou/kenney-ui-audio (mirror of kenney.nl/assets/interface-sounds)
+- **License:** CC0 1.0
+- **Files used:**
+  - `assets/audio/sfx/ui_click.wav` — from `click1.wav`
+  - `assets/audio/sfx/run_start.wav` — from `switch1.wav`
+  - `assets/audio/sfx/run_stop.wav` — from `mouserelease1.wav`
+  - `assets/audio/sfx/error.wav` — from `rollover1.wav`
+  - `assets/audio/sfx/mine.wav` — from `click3.wav`
+  - `assets/audio/sfx/deposit.wav` — from `click5.wav`
+  - `assets/audio/sfx/win.wav` — from `rollover3.wav`
+
+## Audio — Drone Hum
+- **Source:** Generated programmatically (sine wave oscillator, 80Hz + harmonics)
+- **License:** Project original
+
+## Audio — Ambience
+- **Source:** Generated programmatically (dark low pad, 55Hz + harmonics with slow modulation)
+- **License:** Project original

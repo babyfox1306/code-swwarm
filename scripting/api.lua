@@ -21,6 +21,12 @@ local function isOreTarget(t)
     return type(t) == "table" and t.__type == "ore_target"
 end
 
+function Api._inRange(drone, ore)
+    local dx = ore.x - drone.x
+    local dy = ore.y - drone.y
+    return math.sqrt(dx * dx + dy * dy) <= C.MINING_RANGE
+end
+
 function Api.setWorld(worldRef)
     Api.world = worldRef
 end
@@ -42,6 +48,7 @@ end
 -- API: move_to(target) — blocking via coroutine yield
 function Api.move_to(target)
     local drone = Api.world.getDrone()
+    drone.lastMoveTarget = nil  -- clear previous
     if type(target) == "string" and target == "base" then
         drone.targetX = C.BASE_X
         drone.targetY = C.BASE_Y
@@ -57,6 +64,7 @@ function Api.move_to(target)
         drone.targetX = ore.x
         drone.targetY = ore.y
         drone.state = "moving"
+        drone.lastMoveTarget = { type = "ore", id = target.id }
     else
         error("Invalid move target: " .. tostring(target))
     end
@@ -70,14 +78,21 @@ end
 -- API: mine() — blocking via coroutine yield
 function Api.mine()
     local drone = Api.world.getDrone()
-    local ore = Api.world.findNearestOre(drone.x, drone.y)
+    -- prefer ore from last move_to target
+    local ore = nil
+    if drone.lastMoveTarget and drone.lastMoveTarget.type == "ore" then
+        ore = Api.world.getOreById(drone.lastMoveTarget.id)
+        if ore and (not ore:hasOre() or not Api._inRange(drone, ore)) then
+            ore = nil  -- fall through to nearest
+        end
+    end
+    if not ore then
+        ore = Api.world.findNearestOre(drone.x, drone.y)
+    end
     if not ore then
         error("No ore available")
     end
-    local dx = ore.x - drone.x
-    local dy = ore.y - drone.y
-    local dist = math.sqrt(dx * dx + dy * dy)
-    if dist > C.MINING_RANGE then
+    if not Api._inRange(drone, ore) then
         error("Not in range of ore")
     end
     if drone.cargo >= drone.capacity then
@@ -90,6 +105,10 @@ function Api.mine()
     drone.state = "mining"
     drone.miningOreId = ore.id
     drone.miningTimer = C.MINE_DURATION
+
+    -- spawn mining effect immediately
+    local Effects = require("game.effects")
+    Effects.spawnMiningEffect(ore.x, ore.y)
 
     Api.runner.waitUntil(function()
         return drone.state == "idle"
