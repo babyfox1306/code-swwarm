@@ -102,6 +102,16 @@ local function removeFile(path)
     os.remove(path)
 end
 
+local function writeJson(path, tbl)
+    writeFile(path, jsonEncode(tbl))
+end
+
+local function readJsonFile(path)
+    local content = readFile(path)
+    if not content or content == "" then return nil end
+    return jsonDecode(content)
+end
+
 -- ═══════════════════════════════════════════════════════════════
 -- IPC directory + path helpers
 -- ═══════════════════════════════════════════════════════════════
@@ -223,16 +233,6 @@ local function killWorker()
     removeFile(ipcPath("worker.pid"))
     removeFile(ipcPath("api_call.json"))
     removeFile(ipcPath("api_response.json"))
-end
-
-local function writeJson(path, tbl)
-    writeFile(path, jsonEncode(tbl))
-end
-
-local function readJsonFile(path)
-    local content = readFile(path)
-    if not content or content == "" then return nil end
-    return jsonDecode(content)
 end
 
 -- ═══════════════════════════════════════════════════════════════
