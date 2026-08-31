@@ -23,6 +23,9 @@
 | 08 | [08-assets-audio.md](./08-assets-audio.md) | Sprite, tile, SFX, music |
 | 09 | [09-constants.md](./09-constants.md) | Số liệu tuning — một nơi duy nhất |
 | 10 | [10-testing.md](./10-testing.md) | Kịch bản test + Definition of Done |
+| 12 | [12-gate1-final-pass.md](./12-gate1-final-pass.md) | **Final pass Gate 1** — việc còn lại trước khi đóng Issue #1 |
+
+> **Nếu M1–M10 đã xong:** đọc **[12-gate1-final-pass.md](./12-gate1-final-pass.md)** thay vì làm thêm feature.
 
 ---
 
