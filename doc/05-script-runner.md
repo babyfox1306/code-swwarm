@@ -94,27 +94,50 @@ local runner = {
 
 ---
 
-## Instruction budget (chống infinite loop)
+## Instruction budget (chống infinite loop) — LuaJIT-safe
 
-### Cách 1 — Debug hook (recommended)
+### Yêu cầu bắt buộc (LÖVE 11 = LuaJIT 2.1)
+
+1. **`jit.off(fn, true)`** sau khi compile player chunk — JIT-compiled loops **bỏ qua** debug hooks.
+2. **Hook chỉ arm quanh `coroutine.resume()`** — tháo ngay sau resume; không set hook lúc `coroutine.create` và để sống suốt khi drone yield.
+3. **Count mode `"c"`** với `HOOK_INSTRUCTION_INTERVAL`; budget cộng theo interval (50k instructions thật).
+
+```lua
+local jit_ok, jit = pcall(require, "jit")
+
+if jit_ok and jit.off then
+    jit.off(fn, true)
+end
+
+Runner.co = coroutine.create(function()
+    fn()  -- no sethook here
+end)
+
+-- each frame in Runner.update:
+armHook(co)
+local ok, err = coroutine.resume(co)
+clearHook(co)
+```
+
+### QA: Scenario C3 (JIT-friendly)
+
+```lua
+local x = 0
+while true do x = x + 1 end
+```
+
+C/C2 (`while true do end`, `while true do cargo() end`) **không đủ** — phải pass C3 trên máy thật.
+
+### Debug hook (implementation)
 
 ```lua
 local function hook(event)
-    if event == "count" or event == "line" then
-        runner.instructionsThisFrame = runner.instructionsThisFrame + 1
-        if runner.instructionsThisFrame > runner.INSTRUCTION_BUDGET then
+    if event == "count" then
+        Runner.instructionsThisFrame = Runner.instructionsThisFrame + C.HOOK_INSTRUCTION_INTERVAL
+        if Runner.instructionsThisFrame > C.INSTRUCTION_BUDGET then
             error("Execution stopped: instruction budget exceeded", 0)
         end
     end
-end
-
-function runner.run()
-    -- ... compile ...
-    runner.co = coroutine.create(function()
-        debug.sethook(hook, "", 1000)  -- every 1000 instructions
-        fn()
-    end)
-    runner.status = "running"
 end
 ```
 

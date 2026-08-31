@@ -1,9 +1,9 @@
 # 12 — Gate 1 Final Pass (cho freebuff)
 
-> **Trạng thái hiện tại:** `YELLOW` → `GREEN` (blockers fixed)  
-> **Commit tham chiếu:** latest — hardened runner + QA evidence  
-> **Issue #1:** comment `5479442590` — final-blocker checklist  
-> **KHI NÀO ĐÓNG:** Chỉ khi toàn bộ checklist bên dưới PASS.
+> **Trạng thái hiện tại:** `YELLOW` — **một blocker anti-freeze LuaJIT**  
+> **Commit tham chiếu:** `9eab18c` + runner patch (`jit.off` + hook per-resume)  
+> **Issue #1:** vẫn **open** — chưa đóng cho đến C3 pass  
+> **KHI NÀO ĐÓNG:** C3 pass trên máy thật + cập nhật `qa-gate1-evidence.md`
 
 ---
 
@@ -44,18 +44,46 @@ Khi xong file này → báo: **CODE SWARM V0.1 — GATE 1 PASS**
 
 ---
 
-## Final-blocker checklist (Issue #1 comment 5479442590)
+## Final-blocker checklist
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | Harden anti-freeze LuaJIT | ✅ hook "c" + count interval, correct budget math |
-| 2 | Fix budget 50k counting | ✅ counter += HOOK_INTERVAL, budget is real instructions |
-| 3 | STOP escapes ERROR state | ✅ `runner.stop()` handles error→stopped |
-| 4 | No double error SFX | ✅ single transition guard in love.update |
-| 5 | doc/12 updated | ✅ this file |
-| 6 | Root LICENSE | ✅ MIT |
-| 7 | Scenarios A-E + C2 rerun | ✅ qa-gate1-evidence.md |
-| 8 | No Issue #2 before PASS | ✅ |
+| 1 | **Anti-freeze LuaJIT-safe** | 🟡 code fixed — **C3 must pass on device** |
+| 2 | Budget 50k real instructions | ✅ |
+| 3 | STOP escapes ERROR → stopped | ✅ |
+| 4 | No double error SFX | ✅ |
+| 5 | Root MIT LICENSE | ✅ |
+| 6 | Scenarios A–E | ✅ (9eab18c) |
+| 7 | Scenario C3 JIT loop | ☐ **mandatory re-test** |
+| 8 | `qa-gate1-evidence.md` commit SHA | ☐ update after re-test |
+| 9 | No Issue #2 before PASS | ✅ |
+
+### Anti-freeze — yêu cầu kỹ thuật (LuaJIT)
+
+LuaJIT **không gọi debug hook** trên code đã JIT-compile (tight loop). C/C2 pass **không đủ** chứng minh.
+
+**Runner phải có:**
+
+```lua
+local jit = require("jit")
+jit.off(fn, true)   -- sau compile player chunk
+
+-- mỗi frame, chỉ khi resume:
+debug.sethook(co, hook, "c", HOOK_INTERVAL)
+coroutine.resume(co)
+debug.sethook(co, nil)   -- tháo ngay — không để hook sống khi drone yield
+```
+
+**Scenario C3** (`doc/10-testing.md`):
+
+```lua
+local x = 0
+while true do
+    x = x + 1
+end
+```
+
+Chạy `love .` → budget error vài giây → STOP/RESET OK → tick C3 trong `qa-gate1-evidence.md`.
 
 ---
 

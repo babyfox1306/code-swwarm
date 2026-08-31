@@ -64,6 +64,47 @@ end
 
 ---
 
+### Scenario C2 — Hot loop (non-yielding API)
+
+**Program:**
+
+```lua
+while true do
+    cargo()
+end
+```
+
+| Step | Expected |
+|------|----------|
+| RUN | Does NOT freeze |
+| Within few seconds | Budget error |
+| STOP / RESET | Work |
+
+---
+
+### Scenario C3 — JIT-friendly hot loop (bắt buộc cho LuaJIT)
+
+**Program:**
+
+```lua
+local x = 0
+while true do
+    x = x + 1
+end
+```
+
+| Step | Expected |
+|------|----------|
+| RUN | Does NOT freeze — budget error within seconds |
+| STOP | Halts if still running |
+| RESET | Full recovery |
+
+**Tại sao:** LuaJIT **không gọi debug hook** trên code đã JIT-compile. Scenario C/C2 có thể pass nhưng C3 mới là stress test thật. Runner phải có `jit.off(fn, true)` và hook chỉ arm quanh `coroutine.resume()`.
+
+**Fail nếu:** game not responding — anti-freeze chưa LuaJIT-safe.
+
+---
+
 ### Scenario D — Invalid target
 
 **Program:**
