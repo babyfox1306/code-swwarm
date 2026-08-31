@@ -1,9 +1,10 @@
 @echo off
 setlocal
-set "ROOT=%~dp0"
+cd /d "%~dp0"
+
 set "LOVE_DIR=%LOCALAPPDATA%\Programs\LOVE\love-11.5-win64"
 set "LOVE_EXE=%LOVE_DIR%\love.exe"
-set "BUNDLED_PY=%ROOT%vendor\python\python.exe"
+set "BUNDLED_PY=%~dp0vendor\python\python.exe"
 
 if exist "%BUNDLED_PY%" (
     set "CODESWARM_PYTHON=%BUNDLED_PY%"
@@ -20,13 +21,13 @@ if not defined CODESWARM_PYTHON (
 )
 
 if exist "%LOVE_EXE%" (
-    "%LOVE_EXE%" "%ROOT%"
+    "%LOVE_EXE%" .
     exit /b %ERRORLEVEL%
 )
 
 where love >nul 2>&1
 if %ERRORLEVEL%==0 (
-    love "%ROOT%"
+    love .
     exit /b %ERRORLEVEL%
 )
 
