@@ -86,7 +86,8 @@ function HudV02.relayout()
         { id = "run", x = btnX, y = btnY, w = btnW, h = btnH, label = "RUN (F5)", color = {0.15, 0.5, 0.2} },
         { id = "stop", x = btnX + btnW + 10, y = btnY, w = btnW, h = btnH, label = "STOP (Esc)", color = {0.6, 0.15, 0.1} },
         { id = "reset", x = btnX + (btnW + 10) * 2, y = btnY, w = btnW + 20, h = btnH, label = "RESET (F8)", color = {0.3, 0.3, 0.15} },
-        { id = "api_ref", x = btnX + (btnW + 10) * 3 + 20, y = btnY, w = 70, h = btnH, label = "API (F1)", color = {0.2, 0.25, 0.4} },
+        { id = "reset_code", x = btnX + (btnW + 10) * 3 + 20, y = btnY, w = btnW + 30, h = btnH, label = "NEW CODE (F9)", color = {0.25, 0.2, 0.35} },
+        { id = "api_ref", x = btnX + (btnW + 10) * 4 + 50, y = btnY, w = 70, h = btnH, label = "API (F1)", color = {0.2, 0.25, 0.4} },
     }
 end
 
@@ -248,6 +249,8 @@ function HudV02:mousepressed(x, y, button)
                 return "stop"
             elseif btn.id == "reset" then
                 return "reset"
+            elseif btn.id == "reset_code" then
+                return "reset_code"
             elseif btn.id == "api_ref" then
                 if self.apiRef then self.apiRef.toggle() end
                 return nil
@@ -293,6 +296,7 @@ function HudV02:keypressed(key)
     end
     if key == "f5" then return "run" end
     if key == "f8" then return "reset" end
+    if key == "f9" then return "reset_code" end
     if key == "escape" then
         if self.status == "running" or self.status == "error" then
             return "stop"

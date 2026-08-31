@@ -305,13 +305,25 @@ local function mapError(kind, message, line)
         body = "Lines inside a while block must be indented (moved right).\nUse 4 spaces at the start of each line inside the loop."
         hint = "Press Tab at the start of the line after while ...:"
     elseif kind == "NameError" then
+        local badName = message and message:match("name '([^']+)'")
         if message and message:find("minne") then
             title = "Unknown name: minne"
             body = "Python doesn't recognize minne. Did you mean mine()?\nSpelling matters — computer words must match exactly."
             hint = "Change:  minne()\nTo:       mine()"
+        elseif badName == "nearest" then
+            title = "Unknown name: nearest"
+            body = "Did you mean nearest_ore()?\nFunction names need parentheses and an underscore:\n  nearest_ore()"
+            hint = "move_to(nearest_ore())"
+        elseif badName == "move_to" or badName == "mine" or badName == "deposit" then
+            title = "Unknown name: " .. badName
+            body = "This command should be available. Try restarting the game.\nOr check for typos / spaces inside the name."
+        elseif badName then
+            title = "Unknown name: " .. badName
+            body = "Python doesn't recognize \"" .. badName .. "\".\nCheck spelling. For Step 1 try:\n  move_to(nearest_ore())"
+            hint = "Copy exactly: move_to(nearest_ore())"
         elseif message and message:find("is not defined") then
             title = "Unknown name"
-            body = "This name isn't defined. Check your spelling or use nearest_ore()."
+            body = "This name isn't defined.\nFor Step 1 use:\n  move_to(nearest_ore())"
         end
     elseif kind == "RuntimeError" then
         if message and message:find("Not at base") then

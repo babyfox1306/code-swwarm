@@ -53,6 +53,7 @@ def _write_resp(ipc_dir, resp):
 
 def _run_source(source, ipc_dir):
     """Compile and execute player source code in restricted sandbox."""
+    source = _clean_source(source)
     globals_dict = make_globals()
 
     try:
@@ -128,11 +129,28 @@ def _run_source(source, ipc_dir):
 
 
 def _extract_line(exc):
-    """Extract line number from exception."""
+    """Extract line number from player source (<player> frame), not worker internals."""
     tb = exc.__traceback__
-    if tb:
-        return tb.tb_lineno
-    return None
+    player_line = None
+    fallback = None
+    while tb is not None:
+        if tb.tb_lineno:
+            fallback = tb.tb_lineno
+            if tb.tb_frame.f_code.co_filename == "<player>":
+                player_line = tb.tb_lineno
+                break
+        tb = tb.tb_next
+    return player_line if player_line is not None else fallback
+
+
+def _clean_source(source):
+    """Remove BOM / zero-width chars that break identifiers when pasted."""
+    if not source:
+        return source
+    source = source.replace("\ufeff", "")
+    for ch in ("\u200b", "\u200c", "\u200d", "\u2060"):
+        source = source.replace(ch, "")
+    return source
 
 
 def _write_pid(ipc_dir):

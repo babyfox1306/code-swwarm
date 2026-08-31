@@ -46,8 +46,12 @@ local function loadStarterCode()
     return "# Welcome to CODE SWARM!\n# Read the Coach panel.\n"
 end
 
-local function saveEditorCode(text)
-    love.filesystem.write(saveFile, text)
+local function loadStarterOnly()
+    local starterInfo = love.filesystem.getInfo("data/mission01/starter.py")
+    if starterInfo then
+        return love.filesystem.read("data/mission01/starter.py")
+    end
+    return "# Welcome to CODE SWARM!\n# Read the Coach panel.\n"
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -86,6 +90,11 @@ local function doAction(action)
         HudV02:setStatus("idle")
         HudV02:setDeposited(0)
         HudV02:setCargo(0, C.CARGO_CAPACITY)
+    elseif action == "reset_code" then
+        Audio.play("ui_click")
+        runner.stop()
+        resetEditorToStarter()
+        HudV02:setStatus("idle")
     end
 end
 
