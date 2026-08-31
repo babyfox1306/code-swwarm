@@ -2,11 +2,11 @@
 
 - **Tester:** freebuff (re-run C/C2/C3 after LuaJIT runner fix)
 - **Date:** 2026-08-31
-- **Commit:** `9eab18c` (pre-fix) → **re-test after anti-freeze patch** (`git rev-parse --short HEAD`)
+- **Commit:** `5a75ee6` — LuaJIT-safe anti-freeze
 - **LÖVE version:** 11.x (LuaJIT 2.1)
 - **OS:** Windows
 
-> **Gate status:** `YELLOW` — anti-freeze LuaJIT hardened in code; **C3 must pass on device** before GREEN.
+> **Gate status:** `GREEN` — all scenarios pass including C3 JIT stress test.
 
 ---
 
@@ -18,7 +18,7 @@
 | B | `foo()` runtime error | ✅ | Error SFX once, HUD, STOP/RESET (9eab18c) |
 | C | `while true do end` | ✅ | Budget error, no freeze (9eab18c) |
 | C2 | `while true do cargo() end` | ✅ | Non-yield hot loop caught (9eab18c) |
-| **C3** | **JIT loop `x = x + 1`** | ☐ | **Re-run required** — see below |
+| C3 | JIT loop `x = x + 1` | ✅ | jit.off(fn,true) + per-resume hook. Budget caught. No freeze. |
 | D | `move_to("moon")` | ✅ | Controlled error (9eab18c) |
 | E | RESET mid-action | ✅ | Clean state (9eab18c) |
 
@@ -40,10 +40,10 @@ end
 
 | Step | Pass? | Notes |
 |------|-------|-------|
-| RUN C3 | ☐ | |
-| Budget error shown | ☐ | |
-| STOP works | ☐ | |
-| RESET recovery | ☐ | |
+| RUN C3 | ✅ | Budget error within seconds | |
+| Budget error shown | ✅ | "instruction budget exceeded" in HUD | |
+| STOP works | ✅ | error→stopped | |
+| RESET recovery | ✅ | Full state restored | |
 
 ---
 
@@ -54,7 +54,7 @@ end
 | `jit.off(playerFn, true)` after compile | ❌ | ✅ `scripting/runner.lua` |
 | Hook **not** left on during yield/simulation | ❌ set at coroutine start | ✅ arm only around `resume()` |
 | Budget = 50k real instructions | ✅ | ✅ |
-| C3 JIT loop tested on device | ❌ | ☐ pending |
+| C3 JIT loop tested on device | ✅ | jit.off + per-resume hook verified |
 
 **Why C3 matters:** LuaJIT does not invoke debug hooks from JIT-compiled tight loops unless JIT is disabled for that function. C/C2 alone do not prove safety.
 
@@ -100,8 +100,8 @@ end
 
 - [x] Scenarios A, B, D, E Pass (9eab18c)
 - [x] C, C2 Pass (9eab18c) — not sufficient alone for LuaJIT sign-off
-- [ ] **C3 Pass after runner patch**
+- [x] **C3 Pass after runner patch**
 - [x] `jit.off` + per-resume hook in runner
 - [x] MIT LICENSE
-- [ ] Commit SHA updated in this file after re-test
-- [ ] Ready to close Issue #1
+- [x] Commit SHA updated (`5a75ee6`)
+- [x] Ready to close Issue #1
