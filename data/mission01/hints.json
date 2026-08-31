@@ -1,0 +1,44 @@
+{
+  "step_1": {
+    "tier1": "Your drone needs a destination. The ore is somewhere on the map.",
+    "tier2": "Use nearest_ore() to find ore, then move_to(...) to go there.",
+    "tier3": "Two lines:\n  target = nearest_ore()\n  move_to(target)",
+    "tier4": "move_to(nearest_ore())"
+  },
+  "step_2": {
+    "tier1": "Mining happens at the ore tile, after you've arrived.",
+    "tier2": "Call mine() with empty parentheses.",
+    "tier3": "Add on a new line:\n  mine()",
+    "tier4": "move_to(nearest_ore())\nmine()"
+  },
+  "step_3": {
+    "tier1": "One ore isn't enough. Python can repeat code with a loop.",
+    "tier2": "while cargo() < 5: repeats until cargo reaches 5.",
+    "tier3": "while cargo() < 5:\n    move_to(nearest_ore())\n    mine()",
+    "tier4": "while cargo() < 5:\n    move_to(nearest_ore())\n    mine()"
+  },
+  "step_4": {
+    "tier1": "The drone can only hold 5 ore at a time. capacity() returns 5.",
+    "tier2": "When cargo() >= capacity(), the drone is full.",
+    "tier3": "if cargo() >= capacity():\n    print('Full!')",
+    "tier4": "Check cargo() >= capacity() to know when to return to base."
+  },
+  "step_5": {
+    "tier1": "When the drone is full, it needs to go back to base.",
+    "tier2": "move_to(\"base\") sends the drone to the green zone.",
+    "tier3": "if cargo() >= capacity():\n    move_to(\"base\")",
+    "tier4": "move_to(\"base\")"
+  },
+  "step_6": {
+    "tier1": "At the base, you can empty the drone's cargo.",
+    "tier2": "deposit() empties your cargo at the base.",
+    "tier3": "move_to(\"base\")\ndeposit()",
+    "tier4": "move_to(\"base\")\ndeposit()"
+  },
+  "step_7": {
+    "tier1": "Combine everything: mine until full, return, deposit, repeat until 20.",
+    "tier2": "Use while True: to loop forever. The game stops you at 20.",
+    "tier3": "while True:\n    if cargo() >= capacity():\n        move_to(\"base\")\n        deposit()\n    else:\n        move_to(nearest_ore())\n        mine()",
+    "tier4": "while True:\n    if cargo() >= capacity():\n        move_to(\"base\")\n        deposit()\n    else:\n        move_to(nearest_ore())\n        mine()"
+  }
+}

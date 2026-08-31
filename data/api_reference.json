@@ -1,0 +1,50 @@
+[
+  {
+    "name": "move_to",
+    "signature": "move_to(target)",
+    "summary": "Send your drone to a location and wait until it arrives.",
+    "params": [{"name": "target", "desc": "Use nearest_ore() or \"base\""}],
+    "example": "move_to(nearest_ore())",
+    "related": ["nearest_ore"]
+  },
+  {
+    "name": "nearest_ore",
+    "signature": "nearest_ore()",
+    "summary": "Find the closest ore patch and return a target you can use with move_to().",
+    "params": [],
+    "example": "target = nearest_ore()",
+    "related": ["move_to"]
+  },
+  {
+    "name": "mine",
+    "signature": "mine()",
+    "summary": "Mine ore at your current location. Blocks until one ore is extracted.",
+    "params": [],
+    "example": "mine()",
+    "related": ["cargo", "capacity"]
+  },
+  {
+    "name": "cargo",
+    "signature": "cargo()",
+    "summary": "Return how much ore the drone is currently carrying.",
+    "params": [],
+    "example": "if cargo() >= capacity():",
+    "related": ["capacity"]
+  },
+  {
+    "name": "capacity",
+    "signature": "capacity()",
+    "summary": "Return the maximum ore the drone can hold (5 for Mission 01).",
+    "params": [],
+    "example": "if cargo() >= capacity():",
+    "related": ["cargo"]
+  },
+  {
+    "name": "deposit",
+    "signature": "deposit()",
+    "summary": "Deposit all your cargo at the base. Blocks until complete.",
+    "params": [],
+    "example": "deposit()",
+    "related": ["move_to"]
+  }
+]

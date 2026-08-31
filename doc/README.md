@@ -1,8 +1,30 @@
-# CODE SWARM — V0.1 Implementation Docs
+# CODE SWARM — Implementation Docs
 
-> **Thi công:** freebuff  
+> **Active:** [V0.2 — In-Game Python Workspace](./v02/README.md) · Issue [#2](https://github.com/babyfox1306/code-swwarm/issues/2)  
+> **Done:** [V0.1 — Playable Core Loop](#v01-archive) · Issue #1 CLOSED (Gate 1 PASS)
+
+---
+
+## V0.2 — Active (freebuff starts here)
+
+**Mục tiêu:** Người chưa biết code học Python **trong game** — Coach, editor, hints, RUN thật.
+
+→ **[doc/v02/README.md](./v02/README.md)**
+
+Thứ tự: `P0 Python spike → P1 buffer RUN → P2 editor → P3 errors → P4 coach → P5 mission → P6 save → P7 QA`
+
+Prompt freebuff: xem cuối [v02/README.md](./v02/README.md)
+
+---
+
+## V0.1 — Archive
+
+> **Thi công:** freebuff (done)  
 > **Issue:** [#1 — Playable Core Loop](https://github.com/babyfox1306/code-swwarm/issues/1)  
-> **Mục tiêu:** Vertical slice chơi được — viết code → RUN → drone đào quặng → nạp base → WIN @ 20 ore
+> **Mục tiêu:** Vertical slice chơi được — viết code → RUN → drone đào quặng → nạp base → WIN @ 20 ore  
+> **Evidence:** [qa-gate1-evidence.md](./qa-gate1-evidence.md)
+
+<a id="v01-archive"></a>
 
 ---
 
