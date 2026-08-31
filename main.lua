@@ -54,6 +54,22 @@ local function loadStarterOnly()
     return "# Welcome to CODE SWARM!\n# Read the Coach panel.\n"
 end
 
+local function saveEditorCode(text)
+    love.filesystem.write(saveFile, text)
+end
+
+local function resetEditorToStarter()
+    love.filesystem.remove(saveFile)
+    local code = loadStarterOnly()
+    Editor:setText(code)
+    saveEditorCode(code)
+    ErrorPanel:clear()
+    Editor:clearHighlight()
+    CoachPanel:setStep(1)
+    Mission01.init()
+    arrivedAtOreEmitted = false
+end
+
 -- ═══════════════════════════════════════════════════════════════
 -- Action handler
 -- ═══════════════════════════════════════════════════════════════
