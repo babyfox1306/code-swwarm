@@ -6,6 +6,7 @@ local runner = require("scripting.runner")
 local Assets = require("game.assets")
 local Audio = require("game.audio")
 local hud = require("ui.hud")
+local lastRunnerStatus = "idle"
 
 -- Shared action handler (keyboard + mouse)
 local function doAction(action)
@@ -63,10 +64,15 @@ function love.update(dt)
     if world.isWon() and runner:getStatus() ~= "won" then
         runner:onWin()
     end
-    -- sync error to HUD
-    if runner:getStatus() == "error" then
+    -- sync error to HUD + play error SFX once on transition
+    local status = runner:getStatus()
+    if status == "error" then
+        if lastRunnerStatus ~= "error" then
+            Audio.play("error")
+        end
         hud:setError(runner:getError())
     end
+    lastRunnerStatus = status
     Audio.update(dt, world.getDrone().state)
     hud:update(dt)
 end
