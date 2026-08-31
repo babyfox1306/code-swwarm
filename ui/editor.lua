@@ -22,6 +22,54 @@ local Editor = {
     y = 0,
 }
 
+-- Strip invalid UTF-8 so LÖVE text rendering does not crash (Windows saves, paste, etc.)
+function Editor._sanitizeUtf8(str)
+    if not str or str == "" then return "" end
+    local out = {}
+    local i, len = 1, #str
+    while i <= len do
+        local b = str:byte(i)
+        if b < 0x80 then
+            out[#out + 1] = string.char(b)
+            i = i + 1
+        elseif b >= 0xC2 and b <= 0xDF and i + 1 <= len then
+            local b2 = str:byte(i + 1)
+            if b2 and b2 >= 0x80 and b2 <= 0xBF then
+                out[#out + 1] = str:sub(i, i + 1)
+                i = i + 2
+            else
+                i = i + 1
+            end
+        elseif b >= 0xE0 and b <= 0xEF and i + 2 <= len then
+            local b2, b3 = str:byte(i + 1), str:byte(i + 2)
+            if b2 and b3 and b2 >= 0x80 and b2 <= 0xBF and b3 >= 0x80 and b3 <= 0xBF then
+                out[#out + 1] = str:sub(i, i + 2)
+                i = i + 3
+            else
+                i = i + 1
+            end
+        elseif b >= 0xF0 and b <= 0xF4 and i + 3 <= len then
+            local b2, b3, b4 = str:byte(i + 1), str:byte(i + 2), str:byte(i + 3)
+            if b2 and b3 and b4 and b2 >= 0x80 and b2 <= 0xBF
+                and b3 >= 0x80 and b3 <= 0xBF and b4 >= 0x80 and b4 <= 0xBF then
+                out[#out + 1] = str:sub(i, i + 3)
+                i = i + 4
+            else
+                i = i + 1
+            end
+        else
+            i = i + 1
+        end
+    end
+    return table.concat(out)
+end
+
+function Editor._safeTextWidth(text)
+    text = Editor._sanitizeUtf8(text or "")
+    local ok, w = pcall(function() return Editor.font:getWidth(text) end)
+    return ok and w or 0
+end
+
 function Editor.init(x, y, w, h)
     Editor.x = x
     Editor.y = y
@@ -42,11 +90,11 @@ function Editor:setText(s)
     if not s or s == "" then
         self.lines = { "" }
     else
-        -- Normalize line endings
+        s = Editor._sanitizeUtf8(s)
         s = s:gsub("\r\n", "\n"):gsub("\r", "\n")
         self.lines = {}
         for line in s:gmatch("([^\n]*)") do
-            self.lines[#self.lines + 1] = line
+            self.lines[#self.lines + 1] = Editor._sanitizeUtf8(line)
         end
         if #self.lines == 0 then self.lines = { "" } end
     end
@@ -178,8 +226,9 @@ end
 -- Text input (printable characters)
 function Editor:handleTextInput(text)
     if not text or text == "" then return end
-    -- Ignore control chars
     if text:byte(1) < 32 then return end
+    text = Editor._sanitizeUtf8(text)
+    if text == "" then return end
 
     self.errorLine = nil
     self.dirty = true
@@ -266,7 +315,7 @@ function Editor:draw()
         if lineIdx > #self.lines then break end
 
         local y = startY + (i - 1) * self.lineHeight
-        local line = self.lines[lineIdx]
+        local line = Editor._sanitizeUtf8(self.lines[lineIdx] or "")
 
         -- Error line highlight
         if self.errorLine and lineIdx == self.errorLine then
@@ -282,14 +331,17 @@ function Editor:draw()
 
         -- Code text
         love.graphics.setColor(0.85, 0.88, 0.92)
-        love.graphics.print(line, self.x + self.padX + numWidth + 8, y)
+        local ok = pcall(love.graphics.print, line, self.x + self.padX + numWidth + 8, y)
+        if not ok then
+            love.graphics.print("?", self.x + self.padX + numWidth + 8, y)
+        end
 
         -- Caret (blinking)
         if self.focused and lineIdx == self.caretRow then
             local t = love.timer.getTime()
             if math.floor(t * 2) % 2 == 0 then
-                local charBefore = line:sub(1, self.caretCol - 1)
-                local cx = self.x + self.padX + numWidth + 8 + self.font:getWidth(charBefore)
+                local charBefore = Editor._sanitizeUtf8(line:sub(1, self.caretCol - 1))
+                local cx = self.x + self.padX + numWidth + 8 + Editor._safeTextWidth(charBefore)
                 love.graphics.setColor(0.9, 0.95, 1.0)
                 love.graphics.rectangle("fill", cx, y, 2, self.fontHeight)
             end
