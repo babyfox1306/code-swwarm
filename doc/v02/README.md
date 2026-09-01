@@ -26,6 +26,7 @@
 | 12 | [12-anti-patterns.md](./12-anti-patterns.md) | Cấm + FAQ |
 | 13 | [13-gate2-final-pass.md](./13-gate2-final-pass.md) | Harness A–H (superseded by Phase 10) |
 | 14 | **[14-mission01-product-pass.md](./14-mission01-product-pass.md)** | **ACTIVE — Phase 0→10 product pass (Issue #2)** |
+| 15 | **[15-ui-figma-master-plan.md](./15-ui-figma-master-plan.md)** | **UI/Figma chi tiết — 7 frames, tokens, LÖVE map** |
 
 ---
 
@@ -74,7 +75,7 @@ Chi tiết: **[03-milestones.md](./03-milestones.md)**
 ```
 Đọc doc/v02/14-mission01-product-pass.md — plan BẮT BUỘC Issue #2.
 
-Phase 0→10 theo đúng thứ tự. Phase 0: Figma Make 7 states trước khi sửa layout Lua.
+Phase 0→10 theo đúng thứ tự. UI: đọc doc/v02/15-ui-figma-master-plan.md (Figma 7 states trước layout Lua).
 Phase 1: Fix Step 3→4. Phase 10: cold-start beginner playtest trên alpha package.
 
 Không Mission 02 / feature mới. Mỗi phase: commit + comment Issue #2.

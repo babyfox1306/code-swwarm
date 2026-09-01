@@ -13,7 +13,7 @@
 
 Thứ tự: `P0 Python spike → P1 buffer RUN → P2 editor → P3 errors → P4 coach → P5 mission → P6 save → P7 QA`
 
-Prompt freebuff: **[v02/14-mission01-product-pass.md](./v02/14-mission01-product-pass.md)** (Phase 0→10 — Figma first, cold-start playtest cuối)
+Prompt freebuff: **[v02/14-mission01-product-pass.md](./v02/14-mission01-product-pass.md)** · UI: **[15-ui-figma-master-plan.md](./v02/15-ui-figma-master-plan.md)**
 
 ---
 

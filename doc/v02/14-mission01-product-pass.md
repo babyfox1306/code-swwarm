@@ -81,6 +81,8 @@ Paste vào Issue #2:
 
 # Phase 0 — Figma Make reference (BLOCKER UI)
 
+> **Chi tiết từng frame, tokens, prompt Figma Make:** [15-ui-figma-master-plan.md](./15-ui-figma-master-plan.md)
+
 ## Mục tiêu
 
 Thiết kế **toàn bộ màn hình player-facing** trong Figma Make **trước** khi sửa `hud_v02.lua`, `editor.lua`, `coach_panel.lua`, layout.
