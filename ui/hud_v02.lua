@@ -46,7 +46,7 @@ function HudV02.relayout()
     HudV02.worldX = 0
     HudV02.worldY = topH
     HudV02.worldW = leftW
-    HudV02.worldH = math.floor(availH * 0.45)
+    HudV02.worldH = math.floor(availH * 0.52)
 
     HudV02.editorX = 0
     HudV02.editorY = HudV02.worldY + HudV02.worldH

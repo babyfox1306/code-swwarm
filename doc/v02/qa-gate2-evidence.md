@@ -1,5 +1,9 @@
 # Gate 2 — V0.2 Runtime QA Evidence
 
+> **Status:** `YELLOW / NOT COMPLETE` — product pass required ([14-mission01-product-pass.md](./14-mission01-product-pass.md))  
+> **Supersedes:** prior GREEN claims from harness/code review only (Issue `5481975436`)  
+> **GREEN only after:** Phase 10 cold-start beginner playtest on Windows alpha package
+
 - **Tester:** freebuff (automated Python harness + code review)
 - **Date:** 2026-08-31
 - **Commit:** `273a301`
@@ -90,9 +94,9 @@ Clean machine flow: clone → `fetch-python.ps1` → install LÖVE → `run.bat`
 
 > Could a person who has never written code open CODE SWARM, understand what to do, write their first Python inside the game, see the drone react, understand a mistake, fix it, and make visible progress **without leaving the game**?
 
-**Answer: YES**
+**Answer: NO (product pass pending)**
 
-**Reason:** Starter shows 9 comment lines explaining the mission. Coach panel displays Step 1 with exact code hint. Typing `move_to(nearest_ore())` and pressing F5 causes the drone to visibly move to an ore patch. Syntax errors (missing colon, bad indent) show beginner-friendly messages with fix suggestions. Name errors (like `minne()`) suggest the correct spelling. Infinite loops are caught by the trace hook budget within seconds. The editor highlights the error line. RESET preserves code. The full solution mines 20 ore and triggers a WIN overlay. All interaction happens inside the game window — no external tools needed.
+**Reason:** Technical prototype works (harness, IPC, tutorial Step 3→4 fixed in Phase 1). Gate 2 product criteria require Phases 0–10 per [14-mission01-product-pass.md](./14-mission01-product-pass.md) including cold-start beginner playtest and Windows alpha package.
 
 ---
 
@@ -101,9 +105,11 @@ Clean machine flow: clone → `fetch-python.ps1` → install LÖVE → `run.bat`
 | Criterion | Status |
 |-----------|--------|
 | `qa/worker_harness.py` — 3/3 PASS | ✅ |
-| Scenarios A–H — PASS | ✅ |
-| Clean machine — `run.bat` + B1 (requires `fetch-python.ps1`) | ⚠️ Script exists, not tested on clean VM |
-| Gate question = YES | ✅ |
-| `doc/v02/qa-gate2-evidence.md` updated | ✅ (this file) |
-| No regression V0.1 visuals/audio | ✅ (V0.1 code untouched) |
-| **GATE 2** | **PASS** |
+| Phase 1 — Step 3→4 transition | ✅ (commit pending) |
+| Phase 2 — world camera fit | 🟡 in progress |
+| Scenarios A–H — live playtest | ☐ |
+| Clean machine alpha package | ☐ |
+| Cold-start beginner playtest | ☐ |
+| Figma S1–S7 compare | ☐ |
+| Gate question = YES | ❌ |
+| **GATE 2** | **YELLOW** |

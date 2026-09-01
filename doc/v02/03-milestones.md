@@ -192,7 +192,9 @@ Steps: [07-coach-mission01.md](./07-coach-mission01.md)
 
 **Goal:** Scenario A–H pass. Gate question = YES.
 
-Checklist: [11-testing.md](./11-testing.md)
+Checklist: [11-testing.md](./11-testing.md)  
+**Product pass (ACTIVE):** [14-mission01-product-pass.md](./14-mission01-product-pass.md) — Phase 0→10  
+Harness reference: [13-gate2-final-pass.md](./13-gate2-final-pass.md)
 
 ### P7 exit criteria
 

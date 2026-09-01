@@ -69,7 +69,7 @@ Hard rules:
 Start with P0 spike: python worker + 6 API + blocking + STOP + anti-freeze.
 Do not build pretty UI until P0 demo works.
 
-When P7 done: create doc/v02/qa-gate2-evidence.md with scenarios A–H.
+When P7 done: follow [14-mission01-product-pass.md](./14-mission01-product-pass.md) Phase 10 — cold-start playtest + GREEN evidence.
 ```
 
 ---

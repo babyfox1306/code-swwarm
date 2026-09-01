@@ -2,6 +2,7 @@
 -- Supports both V0.1 Lua runner and V0.2 Python runner
 
 local world = require("game.world")
+local WorldCamera = require("game.world_camera")
 local Assets = require("game.assets")
 local Audio = require("game.audio")
 local C = require("game.constants")
@@ -26,8 +27,9 @@ local lastRunnerStatus = "idle"
 local saveFile = "mission01_code.py"
 local lastCargo = 0
 local lastDeposited = 0
-local lastDroneState = "idle"
+local lastDroneSimState = "idle"
 local arrivedAtOreEmitted = false
+local atBaseEmitted = false
 
 -- ═══════════════════════════════════════════════════════════════
 -- Save / Load editor code
@@ -84,11 +86,13 @@ local function doAction(action)
         end
         -- Save before run
         saveEditorCode(source)
+        Mission01:onRunStart(source)
         runner.run(source)
         HudV02:setStatus(runner.getStatus())
     elseif action == "stop" then
         Audio.play("ui_click")
         Audio.play("run_stop")
+        Mission01:onRunEnd("stopped")
         runner.stop()
         ErrorPanel:clear()
         HudV02:setStatus(runner.getStatus())
@@ -101,8 +105,9 @@ local function doAction(action)
         CoachPanel:setStep(1)
         lastCargo = 0
         lastDeposited = 0
-        lastDroneState = "idle"
+        lastDroneSimState = "idle"
         arrivedAtOreEmitted = false
+        atBaseEmitted = false
         HudV02:setStatus("idle")
         HudV02:setDeposited(0)
         HudV02:setCargo(0, C.CARGO_CAPACITY)
@@ -181,6 +186,7 @@ function love.update(dt)
 
     -- Win detection
     if world.isWon() and runner.getStatus() ~= "won" then
+        Mission01:onRunEnd("won")
         runner:onWin()
     end
 
@@ -195,6 +201,7 @@ function love.update(dt)
     if status == "error" then
         if lastRunnerStatus ~= "error" then
             Audio.play("error")
+            Mission01:onRunEnd("error")
         end
         -- Parse error for coach panel
         local errMsg = runner.getError()
@@ -222,6 +229,12 @@ function love.update(dt)
     local deposited = world.getDepositedOre()
     local base = world.getBase()
 
+    -- Detect move completion (moving → idle)
+    if drone.state == "idle" and lastDroneSimState == "moving" then
+        Mission01:onEvent("move_success", { target = drone.lastMoveTarget })
+    end
+    lastDroneSimState = drone.state
+
     if drone.state == "idle" and drone.lastMoveTarget
         and drone.lastMoveTarget.type == "ore"
         and not arrivedAtOreEmitted then
@@ -231,6 +244,10 @@ function love.update(dt)
     end
 
     if drone.cargo ~= lastCargo then
+        -- Detect mine success (cargo increased) vs deposit (cargo decreased)
+        if drone.cargo > lastCargo then
+            Mission01:onEvent("mine_success", { cargo = drone.cargo })
+        end
         Mission01:onEvent("cargo_changed", { cargo = drone.cargo })
         CoachPanel:setStep(Mission01.getStep())
         lastCargo = drone.cargo
@@ -242,12 +259,12 @@ function love.update(dt)
         lastDeposited = deposited
     end
 
-    if base:isDroneInRange(drone) and drone.cargo > 0 and lastDroneState ~= "at_base" then
+    if base:isDroneInRange(drone) and drone.cargo > 0 and not atBaseEmitted then
         Mission01:onEvent("at_base", { cargo = drone.cargo })
         CoachPanel:setStep(Mission01.getStep())
-        lastDroneState = "at_base"
+        atBaseEmitted = true
     elseif not base:isDroneInRange(drone) then
-        lastDroneState = "away"
+        atBaseEmitted = false
     end
 end
 
@@ -260,9 +277,12 @@ function love.resize(w, h)
 end
 
 function love.draw()
-    -- Draw world in its zone
+    WorldCamera.setViewport(HudV02.worldX, HudV02.worldY, HudV02.worldW, HudV02.worldH)
     love.graphics.setScissor(HudV02.worldX, HudV02.worldY, HudV02.worldW, HudV02.worldH)
+    WorldCamera.drawBackground()
+    WorldCamera.begin()
     world.draw()
+    WorldCamera.endDraw()
     love.graphics.setScissor()
 
     -- Draw editor

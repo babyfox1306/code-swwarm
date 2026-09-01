@@ -24,6 +24,8 @@
 | 10 | [10-save-persistence.md](./10-save-persistence.md) | Autosave, RESET vs code |
 | 11 | [11-testing.md](./11-testing.md) | Scenario A–H + Definition of Done |
 | 12 | [12-anti-patterns.md](./12-anti-patterns.md) | Cấm + FAQ |
+| 13 | [13-gate2-final-pass.md](./13-gate2-final-pass.md) | Harness A–H (superseded by Phase 10) |
+| 14 | **[14-mission01-product-pass.md](./14-mission01-product-pass.md)** | **ACTIVE — Phase 0→10 product pass (Issue #2)** |
 
 ---
 
@@ -67,13 +69,18 @@ Chi tiết: **[03-milestones.md](./03-milestones.md)**
 
 ## Prompt gửi freebuff
 
+**Gate 2 = YELLOW — Mission 01 product pass (không tự PASS bằng code review).**
+
 ```
-Implement CODE SWARM V0.2 per Issue #2.
-Read doc/v02/README.md → doc/v03-milestones.md (P0 first).
-Player language = real Python (bundled). No regex-to-Lua.
-RUN executes editor buffer only. Mission 01 with Coach + 4-tier hints.
-Do not add Level 2, enemies, shop. Report after each milestone.
+Đọc doc/v02/14-mission01-product-pass.md — plan BẮT BUỘC Issue #2.
+
+Phase 0→10 theo đúng thứ tự. Phase 0: Figma Make 7 states trước khi sửa layout Lua.
+Phase 1: Fix Step 3→4. Phase 10: cold-start beginner playtest trên alpha package.
+
+Không Mission 02 / feature mới. Mỗi phase: commit + comment Issue #2.
 ```
+
+Issue comments: `5481975436`, `5496198980` · Design: [doc/design/](../design/)
 
 ---
 
