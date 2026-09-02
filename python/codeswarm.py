@@ -4,24 +4,17 @@ Exactly 6 functions. Blocking RPC to Lua simulation via file IPC.
 
 Architecture:
   - Player code calls e.g. move_to(target)
-  - codeswarm.py writes API_CALL.json → Lua reads → executes → writes API_RESPONSE.json
-  - codeswarm.py blocks until API_RESPONSE.json appears
-  - Worker loop uses command.json/response.json (separate channel)
-
-Usage (player code, auto-injected):
-    move_to(nearest_ore())
-    mine()
-    move_to("base")
-    deposit()
+  - codeswarm.py atomically publishes api_call.json
+  - Lua reads -> executes -> atomically publishes api_response.json
+  - codeswarm.py blocks until the matching response appears
 """
 
-import os
 import json
+import os
 import time
 
 _call_counter = 0
 
-# Separate file names for API calls (worker uses command.json/response.json)
 API_CALL_FILE = "api_call.json"
 API_RESPONSE_FILE = "api_response.json"
 
@@ -29,12 +22,28 @@ API_RESPONSE_FILE = "api_response.json"
 def _ipc_dir():
     d = os.environ.get("CODESWARM_IPC_DIR", "")
     if not d:
-        d = os.path.join(os.environ.get("TEMP", os.environ.get("TMP", "/tmp")), "codeswarm_ipc")
+        d = os.path.join(
+            os.environ.get("TEMP", os.environ.get("TMP", "/tmp")),
+            "codeswarm_ipc",
+        )
+    os.makedirs(d, exist_ok=True)
     return d
 
 
+def _atomic_json_write(path, payload):
+    """Publish one complete JSON document; readers never see a partial file."""
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            pass
+    os.replace(tmp, path)
+
+
 def _rpc(fn_name, args=None):
-    """Send API call to Lua simulation, block until response."""
     global _call_counter
     _call_counter += 1
     call_id = _call_counter
@@ -43,26 +52,38 @@ def _rpc(fn_name, args=None):
     call_path = os.path.join(ipc_dir, API_CALL_FILE)
     resp_path = os.path.join(ipc_dir, API_RESPONSE_FILE)
 
-    # Write API call
-    cmd = {"fn": fn_name, "args": args or [], "call_id": call_id}
-    with open(call_path, "w") as f:
-        json.dump(cmd, f)
+    _atomic_json_write(
+        call_path,
+        {"fn": fn_name, "args": args or [], "call_id": call_id},
+    )
 
-    # Block-read response
-    timeout = 60  # seconds
-    start = time.time()
-    while time.time() - start < timeout:
+    timeout = 60
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
         try:
-            with open(resp_path, "r") as f:
+            with open(resp_path, "r", encoding="utf-8") as f:
                 resp = json.load(f)
-            if resp.get("call_id") == call_id:
+        except (FileNotFoundError, json.JSONDecodeError, PermissionError):
+            time.sleep(0.02)
+            continue
+
+        if resp.get("call_id") != call_id:
+            # A response from an obsolete call must not block the current one.
+            try:
                 os.remove(resp_path)
-                if "error" in resp:
-                    raise RuntimeError(resp["error"])
-                return resp.get("result")
-        except (FileNotFoundError, json.JSONDecodeError):
+            except FileNotFoundError:
+                pass
+            time.sleep(0.01)
+            continue
+
+        try:
+            os.remove(resp_path)
+        except FileNotFoundError:
             pass
-        time.sleep(0.02)  # 20ms poll
+
+        if "error" in resp:
+            raise RuntimeError(resp["error"])
+        return resp.get("result")
 
     raise RuntimeError("Simulation timeout — no response from game engine")
 
@@ -70,54 +91,30 @@ def _rpc(fn_name, args=None):
 # ─── 6 Player API Functions ───
 
 def move_to(target):
-    """Send drone to a location. Blocks until arrival.
-
-    Args:
-        target: Use nearest_ore() or "base"
-    """
+    """Send drone to a location. Blocks until arrival."""
     _rpc("move_to", [target])
 
 
 def nearest_ore():
-    """Find closest ore patch.
-
-    Returns:
-        str — target id for move_to()
-    """
+    """Return the nearest available ore target."""
     return _rpc("nearest_ore", [])
 
 
 def mine():
-    """Mine ore at current location. Blocks until one mine action completes.
-
-    Raises:
-        RuntimeError: if not on ore or cargo full
-    """
+    """Mine one unit at the current ore location."""
     _rpc("mine", [])
 
 
 def cargo():
-    """Current ore count in drone.
-
-    Returns:
-        int — 0 .. capacity()
-    """
+    """Return current cargo count."""
     return _rpc("cargo", [])
 
 
 def capacity():
-    """Maximum ore drone can hold.
-
-    Returns:
-        int — 5 for Mission 01
-    """
+    """Return drone cargo capacity."""
     return _rpc("capacity", [])
 
 
 def deposit():
-    """Deposit all cargo at base. Blocks until complete.
-
-    Raises:
-        RuntimeError: if not at base or cargo empty
-    """
+    """Deposit all cargo while at base."""
     _rpc("deposit", [])
