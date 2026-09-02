@@ -1,127 +1,101 @@
-# Mission 01 — UI Spec (from Figma)
+# Mission 01 — UI Spec
 
-> **Master plan:** [../v02/15-ui-figma-master-plan.md](../v02/15-ui-figma-master-plan.md)  
-> **Status:** `DRAFT` — replace defaults below with Figma-locked values after Phase 0
+> **STATUS: PROVISIONAL / NOT FIGMA-LOCKED**  
+> The measurements below are scaffolding for a functional development build. They are **not** values copied from Figma Make.
 
-LÖVE implementation reads this via `ui/layout_spec.lua` (Phase 2b).
+Real UI implementation approval requires `mission01-figma-reference.md` to contain a real Figma Make link and exported S1–S7 frames.
 
----
+## Reference resolutions
 
-## Reference resolution
+- Primary development viewport: **1280 × 720**
+- Minimum supported development viewport: **1024 × 600**
+- Fullscreen: responsive fit
 
-Primary: **1280 × 720**  
-Min: **1024 × 600**  
-Fullscreen: scale proportionally
+## Current functional scaffold
 
----
-
-## Layout @ 1280×720 (default — update after Figma lock)
+These values describe the intended rough hierarchy only and may be replaced after the real design pass:
 
 ```text
-top_bar:     y=0,   h=40
-content:     y=40,  h=632
-command_bar: y=672, h=48
-
-left_col:    x=0,   w=744   (58%)
-right_col:   x=744, w=536   (42%)
-
-facility_feed:  x=8,  y=48,  w=728, h=348
-terminal:       x=8,  y=404, w=728, h=268
-briefing:       x=752, y=48,  w=520, h=240
-alert_strip:    x=752, y=296, w=520, h=108
+top bar
+┌───────────────────────────┬──────────────────┐
+│                           │ mission / coach  │
+│     FACILITY WORLD        │                  │
+│                           ├──────────────────┤
+├───────────────────────────┤ error / status   │
+│     PYTHON TERMINAL       │                  │
+│                           │                  │
+└───────────────────────────┴──────────────────┘
+command bar
 ```
 
-**Min facility height @ 1280:** 320px
+Product hierarchy:
 
----
+1. Facility/world is the primary game surface.
+2. Python editor is an in-world control terminal.
+3. Coach is short and contextual, not a documentation wall.
+4. Error/status connects code to visible world behavior.
+5. EXECUTE/RUN is the primary action.
 
-## Color tokens
+## Current provisional tokens
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `bg_deck` | `#0C0E14` | Full screen |
-| `bg_facility_feed` | `#12161F` | World viewport |
-| `bg_briefing` | `#141820` | Coach |
-| `bg_terminal` | `#0A0D12` | Editor area |
-| `bg_terminal_header` | `#1A2030` | Terminal chrome |
-| `border_panel` | `#2A3040` | Panel borders |
-| `text_primary` | `#E8EAED` | Body |
-| `text_muted` | `#8A9099` | Labels |
-| `accent_cyan` | `#4FC3F7` | Titles, active |
-| `accent_amber` | `#FFB74D` | Cargo, hints |
-| `accent_green` | `#66BB6A` | Deposited, success |
-| `accent_red` | `#EF5350` | Errors |
-| `btn_execute` | `#1B5E20` | RUN |
-| `btn_execute_glow` | `#4CAF50` | RUN running |
-| `btn_abort` | `#B71C1C` | STOP |
-| `btn_secondary` | `#37474F` | Secondary buttons |
-| `line_current` | `#1E2838` | Editor current line |
-| `line_error` | `#3D1515` | Editor error line |
+These are implementation placeholders, not final design tokens.
 
----
+| Token | Current value | Meaning |
+|---|---|---|
+| `bg_deck` | `#0C0E14` | screen background |
+| `bg_facility_feed` | `#12161F` | world region |
+| `bg_terminal` | `#0A0D12` | editor |
+| `accent_cyan` | `#4FC3F7` | active systems |
+| `accent_amber` | `#FFB74D` | warnings/hints |
+| `accent_green` | `#66BB6A` | success |
+| `accent_red` | `#EF5350` | errors |
 
-## Typography
+## Required real-Figma measurements
 
-| Role | Size | Notes |
-|------|------|-------|
-| Game title | 16px bold | Top bar |
-| Mission subtitle | 13px | Top bar |
-| HUD counters | 14px bold | DEPOSITED, CARGO |
-| Coach title | 15px bold | Briefing |
-| Coach body | 13px | Briefing |
-| Terminal code | 14px mono | Editor |
-| Line numbers | 12px mono muted | Gutter |
-| Buttons | 12px bold | Command bar |
+After Figma Make is approved, replace this section with exact values for:
 
----
+- top bar height
+- command bar height
+- world viewport x/y/w/h
+- terminal x/y/w/h
+- coach x/y/w/h
+- error/status x/y/w/h
+- panel gaps/padding
+- typography scale
+- button sizes/states
+- responsive rules at 1024×600, 1280×720, 1920×1080
 
-## Command bar buttons (1280×720)
+## Required frames
 
-| ID | Label | x | w | h | y |
-|----|-------|---|---|---|---|
-| execute | EXECUTE (F5) | 16 | 140 | 36 | 680 |
-| abort | ABORT (Esc) | 164 | 100 | 36 | 680 |
-| reset | RESET FACILITY (F8) | 272 | 130 | 36 | 680 |
-| new_code | NEW PROGRAM (F9) | 410 | 130 | 36 | 680 |
-| api | API (F1) | 548 | 80 | 36 | 680 |
+| Frame | Figma export | Game screenshot | Compared |
+|---|---|---|---|
+| S1 Fresh Mission | ☐ | ☐ | ☐ |
+| S2 Editing | ☐ | ☐ | ☐ |
+| S3 Running | ☐ | ☐ | ☐ |
+| S4 Beginner error | ☐ | ☐ | ☐ |
+| S5 Progress milestone | ☐ | ☐ | ☐ |
+| S6 Mission complete | ☐ | ☐ | ☐ |
+| S7 API / help | ☐ | ☐ | ☐ |
 
-Status pill: right-aligned, x≈1100
+## Module mapping
 
----
+| Region | Current module |
+|---|---|
+| World viewport | `game/world_camera.lua` |
+| Editor | `ui/editor.lua` + `ui/editor_fixed.lua` |
+| Coach | `ui/coach_panel.lua` + `ui/coach_panel_fixed.lua` |
+| Errors | `ui/error_panel.lua` |
+| HUD/layout | `ui/hud_v02.lua` |
+| API overlay | `ui/api_reference.lua` |
 
-## Terminal chrome
+## Lock rule
 
-Header text: `PYTHON CONTROL // UNIT DRONE-01`  
-Header height: 28px  
-Gutter width (line numbers): 40px
+Do **not** change this file to `LOCKED` merely because an ASCII wireframe exists.
 
----
+Lock only after:
 
-## LÖVE module map
-
-| Region | Module |
-|--------|--------|
-| Layout math | `ui/layout_spec.lua` |
-| Top bar | `ui/hud_top_bar.lua` |
-| Facility | `game/world_camera.lua` |
-| Terminal | `ui/editor.lua` + `ui/terminal_chrome.lua` |
-| Briefing | `ui/coach_panel.lua` |
-| Alert | `ui/error_panel.lua` |
-| Commands | `ui/command_bar.lua` |
-| API | `ui/api_reference.lua` |
-| Complete | `ui/mission_complete.lua` |
-| Orchestrator | `ui/hud_v02.lua` |
-
----
-
-## Figma compare checklist
-
-| Frame | PNG | Game screenshot | Match? |
-|-------|-----|-----------------|--------|
-| S1 | `screens/s1-fresh-mission.png` | | ☐ |
-| S2 | `screens/s2-editing.png` | | ☐ |
-| S3 | `screens/s3-running.png` | | ☐ |
-| S4 | `screens/s4-error.png` | | ☐ |
-| S5 | `screens/s5-milestone.png` | | ☐ |
-| S6 | `screens/s6-complete.png` | | ☐ |
-| S7 | `screens/s7-api-help.png` | | ☐ |
+1. real Figma Make reference exists;
+2. S1–S7 exported;
+3. values above copied from Figma;
+4. game screenshots compared;
+5. product owner approves in Issue #2.
