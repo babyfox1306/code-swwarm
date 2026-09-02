@@ -1,23 +1,21 @@
 """
 CODE SWARM — Python Worker
-Subprocess entry point. Reads commands from file IPC, executes player code.
+Subprocess entry point. Reads commands from file IPC and executes player code.
 """
 
+import json
 import os
 import sys
-import json
 import time
 
-# Ensure python/ dir is importable
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
-from bootstrap import make_globals, trace_hook, reset_trace, MAX_INSTRUCTIONS
+from bootstrap import make_globals, trace_hook, reset_trace
 
 
 def _get_ipc_dir():
-    """Get IPC directory — argv[1], env, or temp fallback."""
     if len(sys.argv) > 1 and sys.argv[1].strip():
         ipc_dir = sys.argv[1].strip()
     else:
@@ -32,95 +30,84 @@ def _get_ipc_dir():
     return ipc_dir
 
 
+def _atomic_json_write(path, payload):
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            pass
+    os.replace(tmp, path)
+
+
 def _read_cmd(ipc_dir):
-    """Read and consume a command file. Returns dict or None."""
+    """Read and consume one complete command document."""
     cmd_path = os.path.join(ipc_dir, "command.json")
     try:
-        with open(cmd_path, "r") as f:
+        with open(cmd_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        os.remove(cmd_path)
-        return data
     except (FileNotFoundError, json.JSONDecodeError, PermissionError):
         return None
 
+    try:
+        os.remove(cmd_path)
+    except FileNotFoundError:
+        pass
+    return data
+
 
 def _write_resp(ipc_dir, resp):
-    """Write a response file."""
-    resp_path = os.path.join(ipc_dir, "response.json")
-    with open(resp_path, "w") as f:
-        json.dump(resp, f)
+    _atomic_json_write(os.path.join(ipc_dir, "response.json"), resp)
+
+
+def _error(ipc_dir, kind, message, line=None):
+    payload = {"type": "error", "kind": kind, "message": str(message)}
+    if line is not None:
+        payload["line"] = line
+    _write_resp(ipc_dir, payload)
 
 
 def _run_source(source, ipc_dir):
-    """Compile and execute player source code in restricted sandbox."""
+    if not isinstance(source, str):
+        _error(
+            ipc_dir,
+            "InternalError",
+            "RUN protocol expected Python source text but received "
+            + type(source).__name__,
+        )
+        return
+
     source = _clean_source(source)
     globals_dict = make_globals()
 
     try:
         code = compile(source, "<player>", "exec")
+    except IndentationError as e:
+        _error(ipc_dir, "IndentationError", e, e.lineno)
+        return
     except SyntaxError as e:
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": "SyntaxError",
-            "message": str(e),
-            "line": e.lineno,
-        })
+        _error(ipc_dir, "SyntaxError", e, e.lineno)
         return
 
-    # Arm trace hook for anti-freeze — ONLY around exec
     reset_trace()
     sys.settrace(trace_hook)
     had_error = False
     try:
         exec(code, globals_dict)
-    except SyntaxError as e:
-        had_error = True
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": "SyntaxError",
-            "message": str(e),
-            "line": e.lineno,
-        })
-    except IndentationError as e:
-        had_error = True
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": "IndentationError",
-            "message": str(e),
-            "line": e.lineno,
-        })
     except NameError as e:
         had_error = True
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": "NameError",
-            "message": str(e),
-            "line": _extract_line(e),
-        })
+        _error(ipc_dir, "NameError", e, _extract_line(e))
     except TypeError as e:
         had_error = True
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": "TypeError",
-            "message": str(e),
-            "line": _extract_line(e),
-        })
+        _error(ipc_dir, "TypeError", e, _extract_line(e))
     except RuntimeError as e:
         had_error = True
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": "RuntimeError",
-            "message": str(e),
-            "line": _extract_line(e),
-        })
+        _error(ipc_dir, "RuntimeError", e, _extract_line(e))
     except Exception as e:
         had_error = True
-        _write_resp(ipc_dir, {
-            "type": "error",
-            "kind": type(e).__name__,
-            "message": str(e),
-            "line": _extract_line(e),
-        })
+        _error(ipc_dir, type(e).__name__, e, _extract_line(e))
     finally:
         sys.settrace(None)
 
@@ -129,7 +116,6 @@ def _run_source(source, ipc_dir):
 
 
 def _extract_line(exc):
-    """Extract line number from player source (<player> frame), not worker internals."""
     tb = exc.__traceback__
     player_line = None
     fallback = None
@@ -144,7 +130,6 @@ def _extract_line(exc):
 
 
 def _clean_source(source):
-    """Remove BOM / zero-width chars that break identifiers when pasted."""
     if not source:
         return source
     source = source.replace("\ufeff", "")
@@ -154,9 +139,12 @@ def _clean_source(source):
 
 
 def _write_pid(ipc_dir):
-    pid_path = os.path.join(ipc_dir, "worker.pid")
-    with open(pid_path, "w") as f:
+    path = os.path.join(ipc_dir, "worker.pid")
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="ascii") as f:
         f.write(str(os.getpid()))
+        f.flush()
+    os.replace(tmp, path)
 
 
 def main():
@@ -172,33 +160,35 @@ def main():
                 time.sleep(0.02)
                 continue
 
+            if not isinstance(cmd, dict):
+                _error(ipc_dir, "InternalError", "IPC command must be a JSON object")
+                continue
+
             cmd_type = cmd.get("fn", "")
             args = cmd.get("args", [])
+            if not isinstance(args, list):
+                _error(
+                    ipc_dir,
+                    "InternalError",
+                    "IPC field 'args' must be a JSON array",
+                )
+                continue
 
             if cmd_type == "run":
                 source = args[0] if args else ""
                 _run_source(source, ipc_dir)
-
-            elif cmd_type == "stop":
+            elif cmd_type in ("stop", "kill"):
                 stop = True
-
-            elif cmd_type == "kill":
-                stop = True
-
             else:
-                _write_resp(ipc_dir, {
-                    "type": "error",
-                    "kind": "InternalError",
-                    "message": "Unknown command: " + str(cmd_type),
-                })
+                _error(ipc_dir, "InternalError", "Unknown command: " + str(cmd_type))
 
-        sys.exit(0)
+        return 0
     except Exception as e:
         if ipc_dir is None:
             ipc_dir = _get_ipc_dir()
         err_path = os.path.join(ipc_dir, "worker_error.txt")
         try:
-            with open(err_path, "w") as f:
+            with open(err_path, "w", encoding="utf-8") as f:
                 f.write(str(e))
         except OSError:
             pass
@@ -206,4 +196,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
