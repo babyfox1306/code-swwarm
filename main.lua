@@ -1,5 +1,5 @@
--- CODE SWARM — LÖVE2D Entry Point (V0.2)
--- Supports both V0.1 Lua runner and V0.2 Python runner
+-- CODE SWARM — LÖVE2D Entry Point (V0.2 product pass)
+-- Python is the player language. Lua remains the engine/runtime language.
 
 local world = require("game.world")
 local WorldCamera = require("game.world_camera")
@@ -7,22 +7,21 @@ local Assets = require("game.assets")
 local Audio = require("game.audio")
 local C = require("game.constants")
 
--- V0.1 modules (kept for regression/dev)
+-- V0.1 modules retained only for regression/dev.
 local Api = require("scripting.api")
 local luaRunner = require("scripting.runner")
 
--- V0.2 modules
-local pythonRunner = require("scripting.python_runner")
-local Editor = require("ui.editor")
-local CoachPanel = require("ui.coach_panel")
+-- V0.2 production modules.
+local pythonRunner = require("scripting.python_runner_v03")
+local Editor = require("ui.editor_fixed")
+local CoachPanel = require("ui.coach_panel_fixed")
 local ErrorPanel = require("ui.error_panel")
 local ApiRef = require("ui.api_reference")
 local HudV02 = require("ui.hud_v02")
 local Mission01 = require("coach.mission01")
 
--- State
-local usePython = true  -- toggle: true=V0.2 Python, false=V0.1 Lua
-local runner = nil      -- active runner
+local usePython = true
+local runner = nil
 local lastRunnerStatus = "idle"
 local saveFile = "mission01_code.py"
 local lastCargo = 0
@@ -42,17 +41,13 @@ local function loadStarterCode()
         if content and content ~= "" then return content end
     end
     local starterInfo = love.filesystem.getInfo("data/mission01/starter.py")
-    if starterInfo then
-        return love.filesystem.read("data/mission01/starter.py")
-    end
+    if starterInfo then return love.filesystem.read("data/mission01/starter.py") end
     return "# Welcome to CODE SWARM!\n# Read the Coach panel.\n"
 end
 
 local function loadStarterOnly()
     local starterInfo = love.filesystem.getInfo("data/mission01/starter.py")
-    if starterInfo then
-        return love.filesystem.read("data/mission01/starter.py")
-    end
+    if starterInfo then return love.filesystem.read("data/mission01/starter.py") end
     return "# Welcome to CODE SWARM!\n# Read the Coach panel.\n"
 end
 
@@ -67,9 +62,10 @@ local function resetEditorToStarter()
     saveEditorCode(code)
     ErrorPanel:clear()
     Editor:clearHighlight()
-    CoachPanel:setStep(1)
     Mission01.init()
+    CoachPanel:setStep(1)
     arrivedAtOreEmitted = false
+    atBaseEmitted = false
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -78,17 +74,22 @@ end
 
 local function doAction(action)
     if action == "run" then
+        -- Prevent duplicate F5/click while the worker is starting or already running.
+        if runner.isRunning and runner.isRunning() then return end
+
         Audio.play("ui_click")
         local source = Editor:getText()
         if source == "" or source:match("^%s*$") then
             CoachPanel.coachText = "Your editor is empty.\nStart with: move_to(nearest_ore())"
             return
         end
-        -- Save before run
+
         saveEditorCode(source)
         Mission01:onRunStart(source)
         runner.run(source)
+        Audio.play("run_start")
         HudV02:setStatus(runner.getStatus())
+
     elseif action == "stop" then
         Audio.play("ui_click")
         Audio.play("run_stop")
@@ -96,6 +97,7 @@ local function doAction(action)
         runner.stop()
         ErrorPanel:clear()
         HudV02:setStatus(runner.getStatus())
+
     elseif action == "reset" then
         Audio.play("ui_click")
         Audio.stopDroneHum()
@@ -111,6 +113,7 @@ local function doAction(action)
         HudV02:setStatus("idle")
         HudV02:setDeposited(0)
         HudV02:setCargo(0, C.CARGO_CAPACITY)
+
     elseif action == "reset_code" then
         Audio.play("ui_click")
         runner.stop()
@@ -128,48 +131,36 @@ function love.load()
     love.graphics.setBackgroundColor(0.08, 0.09, 0.12)
     love.graphics.setDefaultFilter("nearest", "nearest")
 
-    -- Load assets
     Assets.load()
     Audio.load()
     world.setAssets(Assets)
     world.setAudio(Audio)
     world.init()
 
-    -- Init Lua runner (V0.1)
     Api.setWorld(world)
     luaRunner.init(world, Api)
     Api.setRunner(luaRunner)
 
-    -- Init Python runner (V0.2)
     pythonRunner.init(world, Api)
-
-    -- Choose active runner
     runner = usePython and pythonRunner or luaRunner
     Api.setRunner(runner)
 
-    -- Init UI
     Editor.init(0, 0, 600, 300)
     CoachPanel.init(0, 0, 280, 300)
     ErrorPanel.init(0, 0, 280, 120)
     ApiRef.init(200, 80, 500, 400)
     HudV02.init(Editor, CoachPanel, ErrorPanel, ApiRef)
 
-    -- Load code into editor
     local code = loadStarterCode()
     Editor:setText(code)
+    Editor.onSave = function(text) saveEditorCode(text) end
 
-    -- Wire editor save callback
-    Editor.onSave = function(text)
-        saveEditorCode(text)
-    end
-
-    -- Init coach
     Mission01.init()
     CoachPanel:setStep(Mission01.getStep())
     lastCargo = world.getDrone():getCargo()
     lastDeposited = world.getDepositedOre()
+    lastRunnerStatus = runner.getStatus()
 
-    -- Start ambience
     Audio.startAmbience()
 end
 
@@ -178,41 +169,40 @@ end
 -- ═══════════════════════════════════════════════════════════════
 
 function love.update(dt)
-    -- Simulation first so blocking API calls see movement same frame
+    -- Simulation first so blocking Python API calls see movement progress this frame.
     world.update(dt)
-
-    -- Update runner (Python IPC)
     runner.update(dt)
 
-    -- Win detection
     if world.isWon() and runner.getStatus() ~= "won" then
         Mission01:onRunEnd("won")
         runner:onWin()
     end
 
-    -- Sync status to HUD
     local status = runner.getStatus()
+
+    -- A normal finite Python program used to return to idle without recording success.
+    if (lastRunnerStatus == "running" or lastRunnerStatus == "starting") and status == "idle" then
+        Mission01:onRunEnd("success")
+    end
+
     HudV02:setStatus(status)
     HudV02:setDeposited(world.getDepositedOre())
     local drone = world.getDrone()
     HudV02:setCargo(drone:getCargo(), drone:getCapacity())
 
-    -- Error handling
+    -- Main owns error presentation and audio. Runner never plays error SFX itself.
     if status == "error" then
         if lastRunnerStatus ~= "error" then
             Audio.play("error")
             Mission01:onRunEnd("error")
         end
-        -- Parse error for coach panel
+
         local errMsg = runner.getError()
         if errMsg then
             local title, rest = errMsg:match("^(.-)\n\n(.*)")
             if not title then title = errMsg; rest = "" end
             ErrorPanel:setError(title, rest, "", runner.getErrorLine())
-            -- Highlight error line in editor
-            if runner.getErrorLine() then
-                Editor:highlightLine(runner.getErrorLine())
-            end
+            if runner.getErrorLine() then Editor:highlightLine(runner.getErrorLine()) end
         end
     else
         ErrorPanel:clear()
@@ -221,15 +211,13 @@ function love.update(dt)
 
     lastRunnerStatus = status
 
-    -- Audio
     Audio.update(dt, drone.state)
     HudV02:update(dt)
 
-    -- Coach events — sync step with simulation
+    -- Mission event trace.
     local deposited = world.getDepositedOre()
     local base = world.getBase()
 
-    -- Detect move completion (moving → idle)
     if drone.state == "idle" and lastDroneSimState == "moving" then
         Mission01:onEvent("move_success", { target = drone.lastMoveTarget })
     end
@@ -244,7 +232,6 @@ function love.update(dt)
     end
 
     if drone.cargo ~= lastCargo then
-        -- Detect mine success (cargo increased) vs deposit (cargo decreased)
         if drone.cargo > lastCargo then
             Mission01:onEvent("mine_success", { cargo = drone.cargo })
         end
@@ -269,10 +256,11 @@ function love.update(dt)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- love.draw
+-- Drawing / resize
 -- ═══════════════════════════════════════════════════════════════
 
 function love.resize(w, h)
+    -- The fixed Coach wrapper preserves tutorial step/hint state during relayout.
     HudV02.relayout()
 end
 
@@ -285,10 +273,7 @@ function love.draw()
     WorldCamera.endDraw()
     love.graphics.setScissor()
 
-    -- Draw editor
     Editor:draw()
-
-    -- Draw HUD (top bar, coach, errors, controls, overlays)
     HudV02:draw()
 end
 
@@ -302,16 +287,13 @@ function love.mousepressed(x, y, button)
 end
 
 function love.keypressed(key)
-    -- API reference takes priority
     if ApiRef.visible then
         ApiRef:handleKey(key)
         return
     end
 
     local action = HudV02:keypressed(key)
-    if action then
-        doAction(action)
-    end
+    if action then doAction(action) end
 end
 
 function love.textinput(text)
@@ -322,18 +304,8 @@ function love.wheelmoved(dx, dy)
     HudV02:wheelmoved(dx, dy)
 end
 
--- ═══════════════════════════════════════════════════════════════
--- love.quit — cleanup
--- ═══════════════════════════════════════════════════════════════
-
 function love.quit()
-    -- Save editor code
     local code = Editor:getText()
-    if code and code ~= "" then
-        saveEditorCode(code)
-    end
-    -- Kill Python worker
-    if usePython then
-        pythonRunner.stop()
-    end
+    if code and code ~= "" then saveEditorCode(code) end
+    if usePython then pythonRunner.stop() end
 end
