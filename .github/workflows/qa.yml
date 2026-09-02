@@ -22,13 +22,14 @@ jobs:
           sudo apt-get install -y lua5.4
 
       - name: Compile Python runtime files
-        run: python -m py_compile python/*.py qa/worker_harness.py
+        run: python -m py_compile python/*.py qa/worker_harness.py qa/player_error_contract.py
 
       - name: Compile critical Lua files
         run: |
           lua -e "assert(loadfile('scripting/ipc_protocol.lua'))"
           lua -e "assert(loadfile('scripting/python_runner_v03.lua'))"
           lua -e "assert(loadfile('scripting/python_runner_v04.lua'))"
+          lua -e "assert(loadfile('scripting/python_runner_v05.lua'))"
           lua -e "assert(loadfile('main.lua'))"
           lua -e "assert(loadfile('ui/editor_fixed.lua'))"
           lua -e "assert(loadfile('ui/coach_panel_fixed.lua'))"
@@ -40,6 +41,9 @@ jobs:
 
       - name: Worker error and anti-freeze harness
         run: python qa/worker_harness.py
+
+      - name: Exact beginner typo error contract
+        run: python qa/player_error_contract.py
 
       - name: Lua encoder -> Python worker end-to-end
         shell: bash
