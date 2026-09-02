@@ -1,5 +1,6 @@
--- CODE SWARM — editor geometry hotfix wrapper
--- Keeps the existing editor implementation but fixes click-to-caret mapping.
+-- CODE SWARM — editor geometry/error-navigation hotfix wrapper
+-- Keeps the existing editor implementation while fixing click mapping and
+-- ensuring Python errors are actually brought into view.
 
 local Editor = require("ui.editor")
 
@@ -36,6 +37,36 @@ function Editor:handleClick(x, y)
     self.focused = true
     self:_clampCaret()
     self:_updateScroll()
+end
+
+-- ErrorPanel may say "line 83" while the editor is still showing line 1.
+-- That is useless for a beginner. Highlighting an error now reveals that line
+-- and places the caret there so the next keystroke fixes the actual location.
+function Editor:highlightLine(n)
+    n = tonumber(n)
+    if not n then
+        self.errorLine = nil
+        return
+    end
+
+    n = math.floor(n)
+    if n < 1 or n > #self.lines then
+        self.errorLine = nil
+        return
+    end
+
+    self.errorLine = n
+    self.caretRow = n
+    self.caretCol = math.min(self.caretCol or 1, #(self.lines[n] or "") + 1)
+    if self.caretCol < 1 then self.caretCol = 1 end
+
+    local vis = math.max(1, self:_visibleLines())
+    local desired = n - math.floor(vis / 2)
+    local maxScroll = math.max(1, #self.lines - vis + 1)
+    if desired < 1 then desired = 1 end
+    if desired > maxScroll then desired = maxScroll end
+    self.scrollRow = desired
+    self.focused = true
 end
 
 return Editor
