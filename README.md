@@ -1,54 +1,61 @@
 # CODE SWARM
 
-A programming game: write Lua scripts to automate drones — mine ore, return to base, deposit, repeat until WIN.
+CODE SWARM is a beginner-friendly programming game where the player writes **Python inside the game** to control a mining drone.
 
-## Quick Start
+Current product status: **V0.2 / Mission 01 product pass — Gate 2 not complete yet.**
 
-```bash
-# Install LÖVE 11.x from https://love2d.org/
-# Then from this directory:
-love .
-```
+## Player loop
 
-## Controls
+1. Read the in-game Coach.
+2. Write Python in the built-in editor.
+3. Press **RUN / F5**.
+4. Watch the drone execute the program in the facility.
+5. Understand errors and game-state feedback.
+6. Fix the code and automate the mission.
 
-| Action | Button | Keyboard |
-|--------|--------|----------|
-| RUN | Click "RUN" | `F5` or `R` |
-| STOP | Click "STOP" | `Escape` |
-| RESET | Click "RESET" | `F8` |
-
-## How to Play
-
-1. Edit `player/program.lua` in your favorite text editor
-2. Press **RUN** (or `F5`) to execute your script
-3. Watch your drone mine ore and return to base
-4. Deposit 20 ore to **WIN**
-5. Press **RESET** to start over
+Mission 01 goal: deposit **20 ore**.
 
 ## Player API
 
-```lua
-move_to(target)    -- move drone to "base" or an ore node
-nearest_ore()      -- returns nearest ore with remaining resources
-mine()             -- mine ore at current location
-cargo()            -- returns current cargo count
-capacity()         -- returns max cargo capacity
-deposit()          -- deposit cargo at base
+```python
+move_to(target)     # target: nearest_ore() or "base"
+nearest_ore()       # returns the nearest available ore target
+mine()              # mine one unit while at ore
+cargo()             # current cargo amount
+capacity()          # drone cargo capacity
+deposit()           # deposit cargo while at base
 ```
 
-## Default Script
+The player language is **Python**. Lua/LÖVE2D is the internal game engine and is not part of the learning surface.
 
-```lua
-while true do
-    while cargo() < capacity() do
-        move_to(nearest_ore())
-        mine()
-    end
-    move_to("base")
-    deposit()
-end
+## Development quick start
+
+This repository is still a development build, not the final player distribution package.
+
+```bat
+run.bat
 ```
+
+Development currently requires LÖVE 11.5 and either bundled Python under `vendor/python/` or a local Python 3.10+ runtime. The release target is a standalone Windows package where the player installs neither Python nor LÖVE manually.
+
+## Controls
+
+| Action | Keyboard |
+|---|---|
+| Run program | `F5` |
+| Stop | `Esc` |
+| Reset facility | `F8` |
+| Reset code to starter | `F9` |
+| API reference | `F1` |
+| Fullscreen | `F11` |
+
+## QA
+
+GitHub Actions validates the Python worker and the production Lua JSON serializer -> Python worker IPC contract. Product Gate 2 still requires real in-game playtesting and beginner cold-start evidence.
+
+## Design rule
+
+UI is not considered locked until there is a **real Figma Make reference** for the required states. ASCII wireframes are planning notes only and must not be treated as Figma approval.
 
 ## License
 
