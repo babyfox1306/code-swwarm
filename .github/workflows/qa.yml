@@ -31,6 +31,7 @@ jobs:
           lua -e "assert(loadfile('main.lua'))"
           lua -e "assert(loadfile('ui/editor_fixed.lua'))"
           lua -e "assert(loadfile('ui/coach_panel_fixed.lua'))"
+          lua -e "assert(loadfile('qa/player_move_probe.lua'))"
 
       - name: Worker error and anti-freeze harness
         run: python qa/worker_harness.py
@@ -72,3 +73,10 @@ jobs:
               json.dump({'fn': 'stop', 'args': []}, f)
           PY
           wait "$WORKER_PID" || true
+
+      - name: Beginner command production path
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CODESWARM_PYTHON="$(which python)"
+          lua qa/player_move_probe.lua
