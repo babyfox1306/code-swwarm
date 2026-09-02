@@ -1,0 +1,74 @@
+name: QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  runtime-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lua
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+
+      - name: Compile Python runtime files
+        run: python -m py_compile python/*.py qa/worker_harness.py
+
+      - name: Compile critical Lua files
+        run: |
+          lua -e "assert(loadfile('scripting/ipc_protocol.lua'))"
+          lua -e "assert(loadfile('scripting/python_runner_v03.lua'))"
+          lua -e "assert(loadfile('main.lua'))"
+          lua -e "assert(loadfile('ui/editor_fixed.lua'))"
+          lua -e "assert(loadfile('ui/coach_panel_fixed.lua'))"
+
+      - name: Worker error and anti-freeze harness
+        run: python qa/worker_harness.py
+
+      - name: Lua encoder -> Python worker end-to-end
+        shell: bash
+        run: |
+          set -euo pipefail
+          IPC_DIR="$(mktemp -d)"
+          python python/worker.py "$IPC_DIR" &
+          WORKER_PID=$!
+
+          for _ in $(seq 1 100); do
+            [ -f "$IPC_DIR/worker.pid" ] && break
+            sleep 0.02
+          done
+          test -f "$IPC_DIR/worker.pid"
+
+          lua qa/lua_ipc_e2e.lua "$IPC_DIR"
+
+          for _ in $(seq 1 200); do
+            [ -f "$IPC_DIR/response.json" ] && break
+            sleep 0.02
+          done
+          test -f "$IPC_DIR/response.json"
+
+          python - "$IPC_DIR/response.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding='utf-8') as f:
+              response = json.load(f)
+          assert response == {'type': 'done'}, response
+          print('Lua -> worker -> response PASS')
+          PY
+
+          python - "$IPC_DIR/command.json" <<'PY'
+          import json, os, sys
+          path = sys.argv[1]
+          with open(path, 'w', encoding='utf-8') as f:
+              json.dump({'fn': 'stop', 'args': []}, f)
+          PY
+          wait "$WORKER_PID" || true
